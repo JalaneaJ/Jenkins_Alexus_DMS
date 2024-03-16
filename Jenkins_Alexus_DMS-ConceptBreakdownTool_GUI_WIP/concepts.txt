@@ -1,0 +1,8 @@
+Category: 1,UX Design Skills
+Category: 4,Musicians
+Concept: 101,Wireframing,UX Design Skills,Basics of wireframing
+Component: Organizing Systems,How to organize content effectively
+Component: Labeling Systems,Defining the naming conventions
+Component: Navigation Systems,Designing navigation structures
+Concept: 401,Pop Artists,Musicians,Artists that create music that is population in the mainstream with a catchy melody and lyrics.
+Component: Pop Artists,Musicians who produce music that falls within the pop genre
