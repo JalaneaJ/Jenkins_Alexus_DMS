@@ -25,8 +25,9 @@ Name: Alexus Jenkins
 public class Component {
     private String topic;
     private String details;
+    private int conceptId;
 
-    public Component(String topic, String details) {
+    public Component(String topic, String details, int conceptId) {
         this.topic = topic;
         this.details = details;
     }
@@ -38,10 +39,16 @@ public class Component {
         this.topic = topic;
     }
 
-
     public String getDetails() { return details; }
     public void setDetails(String details) {
         this.details = details;
     }
 
+    public int getConceptId() {
+        return conceptId;
+    }
+
+    public void setConceptId(int conceptId) {
+        this.conceptId = conceptId;
+    }
 }

@@ -1,10 +1,18 @@
 package com.conceptbreakdowntool;
 
 import com.google.gson.Gson;
-import com.google.gson.reflect.TypeToken;
+
 import java.io.*;
-import java.lang.reflect.Type;
+import java.sql.*;
 import java.util.*;
+import java.util.List;
+import java.util.stream.Collectors;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
+
+import static com.conceptbreakdowntool.ConceptBreakdownToolApplication.safelyParseInt;
+
+
 
 /*
  Name: Alexus Jenkins
@@ -59,8 +67,34 @@ public class DatabaseManager {
     private List<Concept> concepts;
     private List<Component> components;
     private List<Category> categories;
-    private String dataFilePath; // New variable to store the path of the data file
+    private String dataFilePath = "conceptBreakdownTool.db"; // This file will be created in the current working directory of the application
+    private Connection dbConnection;
+    private Scanner scanner;
+    private DatabaseManager dbManager;
+    private int conceptId;
 
+    Connection connect() {
+        // SQLite connection string
+        String url = "jdbc:sqlite:/Users/alexusjenkins/Documents/CEN3042C-Software_Development/Jenkins_Alexus_DMS-ConceptBreakdownTool/conceptBreakdownTool.db";
+        Connection conn = null;
+        try {
+            conn = DriverManager.getConnection(url);
+            System.out.println("Connection to SQLite has been established.");
+        } catch (SQLException e) {
+            System.out.println("Connection failed: " + e.getMessage());
+        }
+        return conn;
+    }
+
+    public void testConnection() {
+        try (Connection conn = this.connect()) {
+            if (conn != null) {
+                System.out.println("Connection to SQLite has been established.");
+            }
+        } catch (SQLException e) {
+            System.out.println(e.getMessage());
+        }
+    }
 
     // CONSTRUCTOR
     // DatabaseManager(): Initializes the lists for storing concepts, components, and categories.
@@ -68,21 +102,64 @@ public class DatabaseManager {
         this.concepts = new ArrayList<>();
         this.components = new ArrayList<>();
         this.categories = new ArrayList<>();
+
+        // Check if the default data file exists; if not, create it
+        File defaultDataFile = new File(dataFilePath);
+        if (!defaultDataFile.exists()) {
+            try {
+                // Attempt to create the new file
+                boolean fileCreated = defaultDataFile.createNewFile();
+                if (fileCreated) {
+                    System.out.println("New data file created: " + defaultDataFile.getAbsolutePath());
+                }
+            } catch (IOException e) {
+                System.err.println("Failed to create default data file: " + e.getMessage());
+            }
+        }
+
+        // Optionally, load existing data from the file if needed
+        loadAllData(); // This will load data from the default file path
+    }
+
+    public void setDataFilePath(String dataFilePath) {
+        this.dataFilePath = dataFilePath;
     }
 
     //CRUD OPERATIONS
-    /* addConcept(): Adds a new Concept to the database.
+    /* ): Adds a new Concept to the database.
         Arguments:
             - concept: The Concept object to be added.
-        Return value: None
+      addConcept(  Return value: None
      */
     public void addConcept(Concept concept) {
-        if (findCategoryByName(concept.getCategory()) != null) { // Check if the category of the concept exists
-            concepts.add(concept); // Add the concept if its category exists
-        } else {
-            System.err.println("Category not found for concept: " + concept.getTopic());
+        String sql = "INSERT INTO Concept(topic, category, details) VALUES(?,?,?)";
+
+        try (Connection conn = this.connect();
+             PreparedStatement pstmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
+
+            pstmt.setString(1, concept.getTopic());
+            pstmt.setString(2, concept.getCategory());
+            pstmt.setString(3, concept.getDetails());
+
+            int affectedRows = pstmt.executeUpdate();
+
+            // Check the affected rows
+            if (affectedRows > 0) {
+                // If the insert was successful, add the concept to the in-memory list
+                try (ResultSet generatedKeys = pstmt.getGeneratedKeys()) {
+                    if (generatedKeys.next()) {
+                        concept.setId(generatedKeys.getInt(1)); // Assuming `id` is auto-incremented by the database
+                        this.concepts.add(concept);
+                    } else {
+                        throw new SQLException("Creating concept failed, no ID obtained.");
+                    }
+                }
+            }
+        } catch (SQLException e) {
+            System.out.println(e.getMessage());
         }
     }
+
 
     /*
      * addComponent(): Adds a new Component to the database.
@@ -91,8 +168,22 @@ public class DatabaseManager {
         Return value: None
      */
     public void addComponent(Component component) {
-        this.components.add(component);
-        System.out.println("Component '" + component.getTopic() + "' added successfully.");
+        String sql = "INSERT INTO Component(Component_Topic, Component_Description, Concept_ID) VALUES(?,?,?)";
+
+        try (Connection conn = this.connect();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+
+            pstmt.setString(1, component.getTopic());
+            pstmt.setString(2, component.getDetails());
+            pstmt.setInt(3, component.getConceptId());
+
+            pstmt.executeUpdate();
+            components.add(component);
+
+            System.out.println("Component added successfully to both the database and in-memory list.");
+        } catch (SQLException e) {
+            System.out.println(e.getMessage());
+        }
     }
 
 
@@ -102,10 +193,15 @@ public class DatabaseManager {
         Return value: None
      */
     public void addCategory(Category category) {
-        if (findCategoryByName(category.getTopic()) == null) { // Check if the category already exists
-            categories.add(category); // Add the category if it doesn't exist
-        } else {
-            System.err.println("Category '" + category.getTopic() + "' already exists.");
+        String sql = "INSERT INTO Category (Category_ID, Category_Topic) VALUES (?, ?)";
+
+        try (Connection conn = this.connect();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setInt(1, category.getId());
+            pstmt.setString(2, category.getTopic());
+            pstmt.executeUpdate();
+        } catch (SQLException e) {
+            System.out.println(e.getMessage());
         }
     }
 
@@ -118,20 +214,22 @@ public class DatabaseManager {
      Return value: None
      */
     public boolean updateConcept(int conceptId, String newTopic, String newDetails) {
-        System.out.println("Attempting to update Concept ID: " + conceptId); // Debug statement
-        for (Concept concept : concepts) {
-            System.out.println("Checking Concept ID: " + concept.getId()); // Debug statement
-            if (concept.getId() == conceptId) {
-                concept.setTopic(newTopic);
-                concept.setDetails(newDetails);
-                System.out.println("Update successful for Concept ID: " + conceptId); // Debug statement
-                return true;
-            }
-        }
-        System.out.println("Concept with ID " + conceptId + " not found."); // Debug statement
-        return false;
-    }
+        String sql = "UPDATE Concept SET Concept_Topic = ?, Concept_Details = ? WHERE Concept_ID = ?";
 
+        try (Connection conn = this.connect();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+
+            pstmt.setString(1, newTopic);
+            pstmt.setString(2, newDetails);
+            pstmt.setInt(3, conceptId);
+
+            int affectedRows = pstmt.executeUpdate();
+            return affectedRows > 0;
+        } catch (SQLException e) {
+            System.out.println(e.getMessage());
+            return false;
+        }
+    }
 
 
     /* updateComponent(): Updates an existing Component in the database.
@@ -141,17 +239,42 @@ public class DatabaseManager {
         - newDetails
      Return value: None
      */
-    public boolean updateComponent(String oldTopic, String newTopic, String newDetails) {
-        for (Component component : components) {
-            if (component.getTopic().equals(oldTopic)) {
-                component.setTopic(newTopic);
-                component.setDetails(newDetails);
-                return false;
+    public boolean updateComponent(int conceptId, String oldTopic, String newTopic, String newDetails) {
+        // SQL statement to update a component based on Concept ID and old topic
+        String sql = "UPDATE Component SET topic = ?, details = ? WHERE concept_id = ? AND topic = ?";
+
+        try (Connection conn = this.connect(); PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            // Set parameters for the prepared statement
+            pstmt.setString(1, newTopic);
+            pstmt.setString(2, newDetails);
+            pstmt.setInt(3, conceptId);
+            pstmt.setString(4, oldTopic);
+
+            // Execute the update
+            int affectedRows = pstmt.executeUpdate();
+
+            // Check if the update was successful
+            if (affectedRows > 0) {
+                // Update the in-memory representation
+                for (Component component : components) {
+                    if (component.getConceptId() == conceptId && component.getTopic().equals(oldTopic)) {
+                        component.setTopic(newTopic);
+                        component.setDetails(newDetails);
+                        System.out.println("Component updated successfully in the database and in-memory list.");
+                        return true; // Update successful
+                    }
+                }
+                return true; // Database update successful, in-memory update not applicable or failed
             }
+        } catch (SQLException e) {
+            System.out.println("Error updating component: " + e.getMessage());
         }
-        System.out.println("Component with topic '" + oldTopic + "' not found.");
-        return false;
+        return false; // Update unsuccessful
     }
+
+
+
+
 
     /* updateCategory(): Updates an existing Category in the database.
      Arguments:
@@ -161,16 +284,35 @@ public class DatabaseManager {
      */
     // When updating a category that does not exist
     public boolean updateCategory(int categoryId, String newTopic) {
-        Category category = findCategoryById(categoryId);
-        if (category == null) {
-            System.out.println("Category with ID " + categoryId + " not found.");
-            return false;
+        // SQL statement to update the category name based on its ID
+        String sql = "UPDATE Category SET topic = ? WHERE id = ?";
+
+        try (Connection conn = this.connect(); PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            // Set the new topic and the category ID for the update
+            pstmt.setString(1, newTopic);
+            pstmt.setInt(2, categoryId);
+
+            // Execute the update
+            int affectedRows = pstmt.executeUpdate();
+
+            // Check if the update was successful by examining affected rows
+            if (affectedRows > 0) {
+                // Additionally, update the in-memory list of categories
+                for (Category category : categories) {
+                    if (category.getId() == categoryId) {
+                        category.setTopic(newTopic);
+                        System.out.println("Category updated successfully in the database and in-memory list.");
+                        return true; // Update successful
+                    }
+                }
+                return true; // Database update successful, in-memory update not applicable or failed to find
+            }
+        } catch (SQLException e) {
+            System.out.println("Error updating category: " + e.getMessage());
         }
-        // Proceed with the update
-        category.setTopic(newTopic);
-        System.out.println("Category '" + category.getTopic() + "' updated successfully.");
-        return false;
+        return false; // Update unsuccessful
     }
+
 
     //findCategoryById()
     // Method to find a category by its ID
@@ -190,19 +332,60 @@ public class DatabaseManager {
      Return value: None
      */
     public boolean deleteConcept(int conceptId) {
-        concepts.removeIf(concept -> concept.getId() == conceptId);
-        return false;
+        // SQL statement to delete a concept based on its ID
+        String sql = "DELETE FROM Concept WHERE id = ?";
+
+        try (Connection conn = this.connect();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+
+            // Set the ID parameter for the delete operation
+            pstmt.setInt(1, conceptId);
+
+            // Execute the delete statement
+            int affectedRows = pstmt.executeUpdate();
+
+            // Check if the delete operation was successful
+            if (affectedRows > 0) {
+                // If successful, remove the concept from the in-memory list
+                concepts.removeIf(concept -> concept.getId() == conceptId);
+                return true;
+            }
+        } catch (SQLException e) {
+            System.out.println(e.getMessage());
+        }
+        return false; // Return false if deletion was unsuccessful
     }
+
 
     /* deleteComponent(): Deletes an existing Component from the database based on its topic.
      Arguments:
         - componentTopic: The topic of the Component to be deleted.
      Return value: None
      */
-    public boolean deleteComponent(String componentTopic) {
-        components.removeIf(component -> component.getTopic().equals(componentTopic));
-        return false;
+    public boolean deleteComponent(int componentId) {
+        // SQL statement to delete a component based on its ID
+        String sql = "DELETE FROM Component WHERE id = ?";
+
+        try (Connection conn = this.connect(); PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            // Set the parameters for the SQL query
+            pstmt.setInt(1, componentId);
+
+            // Execute the delete operation
+            int affectedRows = pstmt.executeUpdate();
+
+            // Check if the delete was successful by examining affected rows
+            if (affectedRows > 0) {
+                // Additionally, remove the component from the in-memory list
+                components.removeIf(component -> component.getConceptId() == componentId);
+                System.out.println("Component deleted successfully from the database and in-memory list.");
+                return true; // Delete successful
+            }
+        } catch (SQLException e) {
+            System.out.println("Error deleting component: " + e.getMessage());
+        }
+        return false; // Delete unsuccessful
     }
+
 
     /* deleteCategory(): Deletes an existing Category from the database based on its ID.
      Arguments:
@@ -210,49 +393,26 @@ public class DatabaseManager {
      Return value: None
      */
     public boolean deleteCategory(int categoryId) {
-        Iterator<Category> iterator = categories.iterator();
-        while (iterator.hasNext()) {
-            Category category = iterator.next();
-            if (category.getId() == categoryId) {
-                iterator.remove(); // Remove the category if the ID matches
-                // Additionally, remove all concepts associated with this category
-                concepts.removeIf(concept -> concept.getCategory().equals(category.getTopic()));
-                return true; // Indicate success
+        // SQL statement adjusted to match table column names
+        String sql = "DELETE FROM Category WHERE Category_ID = ?";
+
+        try (Connection conn = this.connect();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setInt(1, categoryId);
+
+            int affectedRows = pstmt.executeUpdate();
+            if (affectedRows > 0) {
+                // Logic for handling successful deletion
+                return true;
             }
+        } catch (SQLException e) {
+            System.out.println(e.getMessage());
         }
-        return false; // Indicate failure if category not found
+        return false;
     }
 
 
-    /* deleteComponentByTopic(): Deletes a concept from the database based on its topic.
-        Arguments:
-          - topic: The Topic of the Concept
-        Return value: "All concepts with the topic [topic name] have been removed."
-     */
-    public void deleteConceptByTopic(String topic) {
-        concepts.removeIf(concept -> concept.getTopic().equalsIgnoreCase(topic));
-        System.out.println("All concepts with topic '" + topic + "' have been removed.");
-    }
 
-    /* deleteComponentByDetails(): Deleted a Component from the database based on its details.
-        Arguments:
-         - details: The details of the Component
-        Return Value: "All components with details [detail information] has been removed."
-     */
-    public void deleteComponentByDetails(String details) {
-        components.removeIf(component -> component.getDetails().equalsIgnoreCase(details));
-        System.out.println("All components with details '" + details + "' have been removed.");
-    }
-
-    /* deleteCategoryByTopic(): Deletes a Category from the database based on its topic
-        Arguments:
-         - topic: Topic of the Category
-        Return Value: "All categories with topic [topic name] have been removed."
-     */
-    public void deleteCategoryByTopic(String topic) {
-        categories.removeIf(category -> category.getTopic().equalsIgnoreCase(topic));
-        System.out.println("All categories with topic '" + topic + "' have been removed.");
-    }
 
     //DATA PERSISTENCE
     /*  saveAllData(): Saves the current state of concepts, components, and categories to a JSON file.
@@ -260,27 +420,47 @@ public class DatabaseManager {
         Return value: None
      */
     public void saveAllData() {
-        if (this.dataFilePath == null) {
-            System.err.println("No file path specified for saving data.");
+        if (this.dataFilePath == null || this.dataFilePath.isEmpty()) {
+            System.err.println("Data file path is not specified. Data not saved.");
             return;
         }
 
-        try (PrintWriter out = new PrintWriter(this.dataFilePath)) {
-            // Write categories
-            for (Category category : categories) {
-                out.println("Category: " + category.getId() + "," + category.getTopic());
+        // Backup the existing file before overwriting
+        File file = new File(this.dataFilePath);
+        File backupFile = new File(this.dataFilePath + ".bak");
+        if (file.exists()) {
+            try {
+                Files.copy(file.toPath(), backupFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
+            } catch (IOException e) {
+                System.err.println("Failed to create backup file: " + e.getMessage());
+                return; // Stop the save operation if backup fails
             }
-            // Write concepts
-            for (Concept concept : concepts) {
-                out.println("Concept: " + concept.getId() + "," + concept.getTopic() + "," + concept.getCategory() + "," + concept.getDetails());
-                // Write components of each concept
-                for (Component component : concept.getComponents()) {
-                    out.println("Component: " + component.getTopic() + "," + component.getDetails());
-                }
-            }
-            out.flush();
-        } catch (FileNotFoundException e) {
+        }
+
+        // Check that data is not null
+        if (concepts == null || components == null || categories == null) {
+            System.err.println("Attempted to save null data. Operation aborted.");
+            return; // Don't overwrite existing data with null
+        }
+
+        // Proceed with saving data
+        Gson gson = new Gson();
+        Map<String, Object> allData = new HashMap<>();
+        allData.put("concepts", concepts);
+        allData.put("components", components);
+        allData.put("categories", categories);
+
+        try (Writer writer = new FileWriter(this.dataFilePath)) {
+            gson.toJson(allData, writer);
+        } catch (IOException e) {
             System.err.println("Error saving data to file: " + e.getMessage());
+            // Attempt to restore from backup
+            try {
+                Files.copy(backupFile.toPath(), file.toPath(), StandardCopyOption.REPLACE_EXISTING);
+                System.err.println("Data restored from backup due to save failure.");
+            } catch (IOException ex) {
+                System.err.println("Failed to restore data from backup: " + ex.getMessage());
+            }
         }
     }
 
@@ -290,82 +470,65 @@ public class DatabaseManager {
         Return value: None
      */
     public void loadAllData() {
-        Gson gson = new Gson();
-        try (FileReader reader = new FileReader("data.json")) {
-            Type dataType = new TypeToken<Map<String, Object>>(){}.getType();
-            Map<String, Object> allData = gson.fromJson(reader, dataType);
+        // Load categories
+        String sqlCategories = "SELECT * FROM Category";
+        // Execute this SQL query to load categories and iterate over the ResultSet to populate your categories list
 
-            this.concepts = gson.fromJson(gson.toJson(allData.get("concepts")), new TypeToken<List<Concept>>(){}.getType());
-            this.components = gson.fromJson(gson.toJson(allData.get("components")), new TypeToken<List<Component>>(){}.getType());
-            this.categories = gson.fromJson(gson.toJson(allData.get("categories")), new TypeToken<List<Category>>(){}.getType());
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+        // Load concepts
+        String sqlConcepts = "SELECT * FROM Concept";
+        // Execute this SQL query to load concepts and iterate over the ResultSet to populate your concepts list
+
+        // Load components
+        String sqlComponents = "SELECT * FROM Component";
+        // Execute this SQL query to load components and iterate over the ResultSet to populate your components list
     }
 
     //loadDataFromFile()
-    public void loadDataFromFile(String filename) throws FileNotFoundException {
-        this.dataFilePath = filename; // Store the file path for later use
-        try (Scanner scanner = new Scanner(new File(filename))) {
-            Concept lastConcept = null;
-            while (scanner.hasNextLine()) {
-                String line = scanner.nextLine().trim();
-                String[] parts = line.split(":", 2);
-                if (parts.length < 2) {
-                    System.err.println("Invalid line format: " + line);
-                    continue;
-                }
-                String type = parts[0].trim();
-                String[] dataParts = parts[1].trim().split(",", -1);
+    // Revised component loading to associate components with concepts indirectly
+    public void loadDataFromFile(String filepath) {
+        categories.clear();
+        concepts.clear();
+        components.clear();
 
-                switch (type) {
-                    case "Category":
-                        if (dataParts.length >= 2) {
-                            int id = Integer.parseInt(dataParts[0].trim());
-                            String name = dataParts[1].trim();
-                            addCategory(new Category(id, name));
-                        } else {
-                            System.err.println("Invalid category data: " + line);
-                        }
-                        break;
-                    case "Concept":
-                        if (dataParts.length >= 4) {
-                            int id = Integer.parseInt(dataParts[0].trim());
-                            String conceptName = dataParts[1].trim();
-                            String categoryName = dataParts[2].trim();
-                            String details = dataParts[3].trim();
-                            Category category = findCategoryByName(categoryName);
-                            if (category != null) {
-                                lastConcept = new Concept(id, conceptName, categoryName, details);
-                                addConcept(lastConcept);
-                            } else {
-                                System.err.println("Category not found for concept: " + conceptName);
-                            }
-                        } else {
-                            System.err.println("Invalid concept data: " + line);
-                        }
-                        break;
-                    case "Component":
-                        if (dataParts.length >= 2 && lastConcept != null) {
-                            String componentName = dataParts[0].trim();
-                            String componentDetails = dataParts[1].trim();
-                            lastConcept.addComponent(new Component(componentName, componentDetails));
-                        } else {
-                            System.err.println("Invalid component data or missing concept: " + line);
-                        }
-                        break;
-                    default:
-                        System.err.println("Unknown type: " + type);
-                        break;
+        try (Connection conn = this.connect()) {
+            // Load categories
+            try (Statement stmt = conn.createStatement();
+                 ResultSet rs = stmt.executeQuery("SELECT Category_ID, Category_Topic FROM Category")) {
+                while (rs.next()) {
+                    categories.add(new Category(rs.getInt("Category_ID"), rs.getString("Category_Topic")));
                 }
             }
-        } catch (FileNotFoundException e) {
-            System.err.println("File not found: " + filename);
-        } catch (NumberFormatException e) {
-            System.err.println("Error parsing numeric value: " + e.getMessage());
+
+            // Load concepts
+            try (Statement stmt = conn.createStatement();
+                 ResultSet rs = stmt.executeQuery("SELECT Concept_ID, Concept_Topic, Concept_Details, Category_ID FROM Concept")) {
+                while (rs.next()) {
+                    concepts.add(new Concept(rs.getInt("Concept_ID"), rs.getString("Concept_Topic"),
+                            findCategoryById(rs.getInt("Category_ID")).getTopic(),
+                            rs.getString("Concept_Details")));
+                }
+            }
+
+            // Load components and directly associate them with the concept
+            try (Statement stmt = conn.createStatement();
+                 ResultSet rs = stmt.executeQuery("SELECT Component_Topic, Component_Description, Concept_ID FROM Component")) {
+                while (rs.next()) {
+                    Component component = new Component(rs.getString("Component_Topic"),
+                            rs.getString("Component_Description"),
+                            rs.getInt("Concept_ID"));
+                    // Find the concept and add the component to it
+                    for (Concept concept : concepts) {
+                        if (concept.getId() == component.getConceptId()) {
+                            concept.addComponent(component);
+                            break; // Stop searching once the concept is found and the component is added
+                        }
+                    }
+                }
+            }
+        } catch (SQLException e) {
+            System.out.println("Error loading data from database: " + e.getMessage());
         }
     }
-
 
     /* addObject(): Adds an Object to a Concept, Component, or Category.
 Arguments:
@@ -380,7 +543,7 @@ Return value: Either an object will be added or an error message will appear.
                 break;
             case "component":
                 // Assuming params order: String topic, String details
-                addComponent(new Component((String) params[0], (String) params[1]));
+                addComponent(new Component((String) params[0], (String) params[1], conceptId));
                 break;
             case "category":
                 // Assuming params order: int id, String topic
@@ -399,15 +562,27 @@ Return value: Either an object will be added or an error message will appear.
     public void updateObject(String objectType, Object... params) {
         switch (objectType.toLowerCase()) {
             case "concept":
-                // Assuming params order: int conceptId, String newTopic, String newCategory, String newDetails
-                updateConcept((Integer) params[0], (String) params[1], (String) params[3]);
+                updateConcept((Integer) params[0], (String) params[1], (String) params[2]);
                 break;
+            // Inside the updateObjects() method
             case "component":
-                // Assuming params order: String oldTopic, String newTopic, String newDetails
-                updateComponent((String) params[0], (String) params[1], (String) params[2]);
+                int componentId = safelyParseInt(scanner, "Enter Component ID to update:");
+                System.out.println("Enter old Component Topic:");
+                String oldComponentTopic = scanner.nextLine().trim();
+                System.out.println("Enter new Component Topic:");
+                String newComponentTopic = scanner.nextLine().trim();
+                System.out.println("Enter new Component Details:");
+                String newComponentDetails = scanner.nextLine().trim();
+
+                // Directly updating the component using its Concept ID and old topic
+                if (dbManager.updateComponent(componentId, oldComponentTopic, newComponentTopic, newComponentDetails)) {
+                    System.out.println("Component details updated successfully.");
+                } else {
+                    System.out.println("Component not found or update failed.");
+                }
                 break;
+
             case "category":
-                // Assuming params order: int categoryId, String newTopic
                 updateCategory((Integer) params[0], (String) params[1]);
                 break;
             default:
@@ -419,24 +594,24 @@ Return value: Either an object will be added or an error message will appear.
         Arguments:
             - objectType: Determines if the objective will be for a concept, component, or category
         Return value: Either an object will be added or an error message will appear.
-         */    public void removeObject(String objectType, Object... params) {
+         */
+    public void removeObject(String objectType, Object... params) {
         switch (objectType.toLowerCase()) {
             case "concept":
-                // Assuming params is the conceptId
                 deleteConcept((Integer) params[0]);
                 break;
             case "component":
-                // Assuming params is the component's topic
-                deleteComponent((String) params[0]);
+                // Adjusted to expect the component's ID as the parameter for deletion
+                deleteComponent((Integer) params[0]);
                 break;
             case "category":
-                // Assuming params is the categoryId
                 deleteCategory((Integer) params[0]);
                 break;
             default:
                 System.out.println("Invalid object type for removal.");
         }
     }
+
 
     //RETRIEVAL METHODS
     // getConcepts(): Retrieves all Concepts from the database.
@@ -498,17 +673,17 @@ Return value: Either an object will be added or an error message will appear.
      Return value: None
      */
     // Inside the addComponentToConcept method in DatabaseManager
+    // When adding a component, ensure you set the correct conceptId
     public void addComponentToConcept(int conceptId, Component component) {
         Concept concept = getConcept(conceptId);
-        if (concept == null) {
+        if (concept != null) {
+            concept.getComponents().add(component);
+            // Add the component to the database as well
+            addComponent(component);
+        } else {
             System.out.println("Concept with ID " + conceptId + " does not exist.");
-            return; // Stop execution for this method
         }
-        concept.getComponents().add(component);
-        System.out.println("Component added successfully.");
     }
-
-
 
     /* addComponentToLastConcept(): Adds a Component to the last added Concept in the database.
     Arguments:
@@ -542,6 +717,93 @@ Return value: Either an object will be added or an error message will appear.
         }
         return false; // Concept not found
     }
+
+    public void updateCategoryName(int categoryId, String newName) {
+        for (Category category : categories) {
+            if (category.getId() == categoryId) {
+                category.setTopic(newName);
+                break; // Exit the loop once the matching category is found and updated
+            }
+        }
+    }
+
+
+    public Category getCategoryById(int id) {
+        for (Category category : categories) {
+            if (category.getId() == id) {
+                return category;
+            }
+        }
+        return null; // Category not found
+    }
+
+
+    public boolean deleteCategoryById(int id) {
+        String query = "DELETE FROM Category WHERE id = ?";
+        try (PreparedStatement pstmt = dbConnection.prepareStatement(query)) {
+            pstmt.setInt(1, id);
+            int affectedRows = pstmt.executeUpdate();
+            return affectedRows > 0;
+        } catch (SQLException e) {
+            e.printStackTrace(); // Similarly, handle exceptions properly
+            return false;
+        }
+    }
+
+    public boolean removeCategoryById(int categoryId) {
+        // Your existing code for deleting a category by ID
+        return deleteCategory(categoryId);
+    }
+
+    public List<Concept> getConceptsByCategory(String categoryName) {
+        return concepts.stream()
+                .filter(concept -> concept.getCategory().equalsIgnoreCase(categoryName))
+                .collect(Collectors.toList());
+    }
+
+
+    public List<Concept> getConceptsByCategoryId(int categoryId) {
+        // First, find the category name associated with the given categoryId
+        Category category = categories.stream()
+                .filter(c -> c.getId() == categoryId)
+                .findFirst()
+                .orElse(null);
+
+        if (category == null) {
+            return Collections.emptyList(); // No category found with the given ID, return an empty list
+        }
+
+        final String categoryName = category.getTopic();
+
+        // Now, filter concepts that are associated with this category name
+        return concepts.stream()
+                .filter(concept -> concept.getCategory().equals(categoryName))
+                .collect(Collectors.toList());
+    }
+
+    public List<Component> getComponentsByConceptId(int conceptId) {
+        List<Component> componentsList = new ArrayList<>();
+        String sql = "SELECT Component_Topic, Component_Description FROM Component WHERE Concept_ID = ?";
+
+        try (Connection conn = this.connect();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+
+            pstmt.setInt(1, conceptId);
+            ResultSet rs = pstmt.executeQuery();
+
+            while (rs.next()) {
+                String topic = rs.getString("Component_Topic");
+                String description = rs.getString("Component_Description");
+                Component component = new Component(topic, description, conceptId);
+                componentsList.add(component);
+            }
+        } catch (SQLException e) {
+            System.out.println(e.getMessage());
+        }
+
+        return componentsList;
+    }
+
 
 
 }

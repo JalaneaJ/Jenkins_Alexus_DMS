@@ -3,7 +3,6 @@ package com.conceptbreakdowntool;
 import java.io.*;
 import java.util.*;
 import java.util.stream.Collectors;
-import java.io.IOException;
 
 
 /*
@@ -237,7 +236,7 @@ public class ConceptBreakdownToolApplication {
                         String componentTopic = scanner.nextLine().trim();
                         System.out.println("\nEnter Component Details: ");
                         String componentDetails = scanner.nextLine().trim();
-                        dbManager.addComponentToConcept(conceptId, new Component(componentTopic, componentDetails));
+                        dbManager.addComponentToConcept(conceptId, new Component(componentTopic, componentDetails, conceptId));
                         System.out.println("Component '" + componentTopic + "' added successfully to Concept ID: " + conceptId);
                     } else {
                         System.out.println("Concept ID does not exist. Please ensure the concept ID is correct.");
@@ -279,51 +278,49 @@ public class ConceptBreakdownToolApplication {
                 case "concept":
                     int conceptId = safelyParseInt(scanner, "Enter Concept ID for update: ");
 
-                    // Check if the concept exists first before asking for new topic and details
-                    Concept existingConcept = dbManager.getConcept(conceptId); // Assuming getConcept(int id) method exists and returns null if not found
-                    if (existingConcept == null) {
-                        System.out.println("Concept with ID " + conceptId + " not found.");
-                        break; // Exit the case if the concept doesn't exist
-                    }
-
+                    // Asking for new topic and details after verifying the concept exists
                     System.out.println("\nEnter new Topic: ");
                     String newConceptTopic = scanner.nextLine().trim();
                     System.out.println("\nEnter new Details: ");
                     String newConceptDetails = scanner.nextLine().trim();
 
-                    // Now you're sure the concept exists, proceed with the update
+                    // Updating the concept with new information
                     if (dbManager.updateConcept(conceptId, newConceptTopic, newConceptDetails)) {
                         System.out.println("Concept updated.");
                     } else {
-                        // This else part might not be necessary anymore if getConcept ensures existence before this point
                         System.out.println("Unexpected error: Concept update failed.");
                     }
                     break;
 
                 case "component":
-                    conceptId = safelyParseInt(scanner, "Enter Concept ID to which this component belongs:");
-                    System.out.println("\nEnter Component Topic to update:");
+                    System.out.println("Enter Component ID to update:");
+                    int componentId = safelyParseInt(scanner, "Enter a valid Component ID: ");
+                    System.out.println("Enter old Component Topic:");
                     String oldComponentTopic = scanner.nextLine().trim();
-                    System.out.println("\nEnter new Component Topic:"); // Assuming you need this based on your method signature.
+                    System.out.println("Enter new Component Topic:");
                     String newComponentTopic = scanner.nextLine().trim();
-                    System.out.println("\nEnter new Component Details:");
+                    System.out.println("Enter new Component Details:");
                     String newComponentDetails = scanner.nextLine().trim();
-                    if (dbManager.updateComponent(oldComponentTopic, newComponentTopic, newComponentDetails)) {
-                        System.out.println("Component details updated successfully.");
+                    // Directly updating the component using its ID
+                    if (dbManager.updateComponent(componentId, oldComponentTopic, newComponentTopic, newComponentDetails)) {
+                        System.out.println("Component updated successfully.");
                     } else {
-                        System.out.println("Concept or Component not found or update failed.");
+                        System.out.println("Component not updated.");
                     }
                     break;
+
                 case "category":
                     int categoryId = safelyParseInt(scanner, "Enter Category ID for update: ");
                     System.out.println("Enter New Category Topic: ");
                     String newCategoryTopic = scanner.nextLine().trim();
+                    // Updating the category with new information
                     if (dbManager.updateCategory(categoryId, newCategoryTopic)) {
                         System.out.println("Category updated.");
                     } else {
                         System.out.println("Category not found or update failed.");
                     }
                     break;
+
                 default:
                     System.out.println("Invalid type. Please choose 'concept', 'component', or 'category'.");
                     break;
@@ -336,6 +333,7 @@ public class ConceptBreakdownToolApplication {
     }
 
 
+
     //removeObjects(): User can remove a concept, component, or category in the database.
     public static void removeObjects(Scanner scanner, DatabaseManager dbManager) {
         System.out.println("What would you like to remove? (Concept/Component/Category): ");
@@ -345,7 +343,7 @@ public class ConceptBreakdownToolApplication {
             switch (type) {
                 case "concept":
                     System.out.println("Enter Concept ID to remove: ");
-                    int conceptId = safelyParseInt(scanner, "Enter a valid Concept ID: "); // Use safelyParseInt for input validation
+                    int conceptId = safelyParseInt(scanner, "Enter a valid Concept ID: ");
                     if (dbManager.deleteConcept(conceptId)) {
                         System.out.println("Concept removed.");
                     } else {
@@ -353,9 +351,10 @@ public class ConceptBreakdownToolApplication {
                     }
                     break;
                 case "component":
-                    System.out.println("Enter Component Topic to remove: ");
-                    String componentTopic = scanner.nextLine().trim();
-                    if (dbManager.deleteComponent(componentTopic)) {
+                    // Adjusted to use component ID for removal
+                    System.out.println("Enter Component ID to remove: ");
+                    int componentId = safelyParseInt(scanner, "Enter a valid Component ID: ");
+                    if (dbManager.deleteComponent(componentId)) {
                         System.out.println("Component removed.");
                     } else {
                         System.out.println("Component could not be found or removed.");
@@ -363,12 +362,15 @@ public class ConceptBreakdownToolApplication {
                     break;
                 case "category":
                     System.out.println("Enter Category ID to remove: ");
-                    int categoryId = safelyParseInt(scanner, "Enter a valid Category ID: "); // Correct prompt for ID input
+                    int categoryId = safelyParseInt(scanner, "Enter a valid Category ID: ");
                     if (dbManager.deleteCategory(categoryId)) {
                         System.out.println("Category removed.");
                     } else {
                         System.out.println("Category could not be found or removed.");
                     }
+                    break;
+                default:
+                    System.out.println("Invalid type provided. Please specify 'concept', 'component', or 'category'.");
                     break;
             }
         } catch (Exception e) {
@@ -379,16 +381,11 @@ public class ConceptBreakdownToolApplication {
     }
 
 
+
     //loadFromFile(): Load concepts, components, and categories from a file into the database.
     private static void loadFromFile(DatabaseManager dbManager, String filename) {
-        try {
-            dbManager.loadDataFromFile(filename); // Assuming you moved the logic here
-            System.out.println("Data loaded successfully from " + filename);
-        } catch (FileNotFoundException e) {
-            System.err.println("File not found: " + filename);
-        } catch (IOException e) {
-            System.err.println("Error reading file: " + e.getMessage());
-        }
+        dbManager.loadDataFromFile(filename); // Assuming you moved the logic here
+        System.out.println("Data loaded successfully from " + filename);
     }
 
     //printDatabase(): Prints the entire database contents, including categories, concepts, and components, into the console.
@@ -428,7 +425,7 @@ public class ConceptBreakdownToolApplication {
         System.out.println("\nFollow the prompts after each command for further instructions.");
     }
 
-    private static int safelyParseInt(Scanner scanner, String prompt) {
+    static int safelyParseInt(Scanner scanner, String prompt) {
         int number;
         do {
             System.out.print(prompt);
