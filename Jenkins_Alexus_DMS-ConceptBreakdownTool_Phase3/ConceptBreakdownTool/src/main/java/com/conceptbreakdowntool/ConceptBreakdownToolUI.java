@@ -1,17 +1,50 @@
-package com.conceptbreakdowntool;
+/**
+ Name: Alexus Jenkins
+ Course: CEN 3042C
+ Date: Apr 11th 2024
+ ClassName: ConceptBreakdownToolUI
 
+ Purpose: A GUI for the Concept Breakdown Tool Application that is designed to manage and organize categories, concepts, and components in a structured database.
+
+- Initialization Methods: Responsible for setting up the initial stage of the application.
+    *Constructor(ConceptBreakdownToolUI): Initializes the main UI frame; Sets up the database manager and application window; Configures the window properties.
+    *initComponents(): Sets up the components of the UI (Buttons, Labels, Panels).
+- UI Action Methods: Used to handle user interactions through UI, responding to button clicks and other actions.
+    * showInstructions(): Displays the instructions to the user.
+    * createFile(): Handles the creation of a new database file (.db).
+- Main Method: Main entry point of the application, handles initial setup before the UI is displayed.
+    * main(): Starts the application; Sets up the database connection; Launches the main UI window; Prompts the user for the database file path; Handles database connection initialization.
+- UI and File Handling: Handles direct interactions with the filesystem and user interface controls.
+    * initComponents(): Sets up the components of the UI (Buttons, Labels, Panels).
+            --instructionsButton(): Displays the application's instructions.
+            --createFileButton(): Initiate the database file creation process.
+            --loadFileButton(): Opens a file chooser to load an existing database.
+
+ @author Alexus Jenkins
+ @version 5.0
+ **/
+
+package com.conceptbreakdowntool;
 import javax.swing.*;
 import java.awt.*;
 import java.io.File;
-import java.io.FileWriter;
 import java.io.IOException;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.Scanner;
 
-
+/**
+ Initialization Methods: Responsible for setting up the initial stage of the application.
+ **/
 public class ConceptBreakdownToolUI extends JFrame {
     private DatabaseManager dbManager;
     private MainApplicationWindow mainWindow;
-
+    /**
+    Constructor(ConceptBreakdownToolUI): Initializes the main UI frame; Sets up the database manager and application window; Configures the window properties.
+     * @param dbManager The database manager instance for database operations.
+    **/
     public ConceptBreakdownToolUI(DatabaseManager dbManager) {
         this.dbManager = dbManager;  // Assign the passed dbManager to the field
         this.mainWindow = new MainApplicationWindow(this.dbManager, this); // Use the assigned dbManager
@@ -21,7 +54,9 @@ public class ConceptBreakdownToolUI extends JFrame {
         setLayout(null);
         initComponents();
     }
-
+    /**
+     initComponents(): Sets up the components of the UI (Buttons, Labels, Panels).
+     **/
     private void initComponents() {
         int gap = 25;
         int startY = (getHeight() - 3 * gap - 100) / 2;
@@ -31,20 +66,27 @@ public class ConceptBreakdownToolUI extends JFrame {
         heading.setBounds((getWidth() - 300) / 2, startY, 300, 30);
 
         JTextField inputField = new JTextField();
-        inputField.setBounds((getWidth() - 300) / 2, startY + 30 + gap, 300, 30);
+        inputField.setBounds((getWidth() - 300) / 2, startY + 30 + gap, 300, 15);
 
         JPanel buttonsPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 0));
         buttonsPanel.setBounds(0, startY + 60 + 2 * gap, getWidth(), 35);
         buttonsPanel.setOpaque(false);
 
+        /**
+         createFileButton(): Initiate the database file creation process.
+         **/
         JButton createFileButton = new JButton("Create File");
         createFileButton.addActionListener(e -> createFile());
 
-
+        /**
+         instructionsButton(): Displays the application's instructions.
+         **/
         JButton instructionsButton = new JButton("Instructions");
         instructionsButton.addActionListener(e -> showInstructions());
 
-
+        /**
+         loadFileButton(): Opens a file chooser to load an existing database.
+         **/
         JButton loadFileButton = new JButton("Load File");
         loadFileButton.addActionListener(e -> {
             if (!mainWindow.isVisible()) {
@@ -56,9 +98,7 @@ public class ConceptBreakdownToolUI extends JFrame {
                 File selectedFile = fileChooser.getSelectedFile();
                 mainWindow.loadFile(selectedFile); // Correctly passing the selected file to load
             }
-
         });
-
 
         buttonsPanel.add(createFileButton);
         buttonsPanel.add(instructionsButton);
@@ -69,14 +109,20 @@ public class ConceptBreakdownToolUI extends JFrame {
         add(buttonsPanel);
     }
 
-
+    /**
+     Main Method: Main entry point of the application, handles initial setup before the UI is displayed.
+     **/
+    /**
+     * main(): Starts the application; Sets up the database connection; Launches the main UI window; Prompts the user for the database file path; Handles database connection initialization.
+     * @param args The command line arguments.
+     * **/
     public static void main(String[] args) {
         // Create a new DatabaseManager instance
         DatabaseManager dbManager = new DatabaseManager();
 
         // Prompt the user for the database path
         Scanner scanner = new Scanner(System.in);
-        System.out.println("Please enter the path to the database file:");
+        System.out.println("Please enter the path to the database file (please make sure it is within the file directory):");
         String dbPath = scanner.nextLine();
 
         // Check if the input path is not empty
@@ -105,7 +151,13 @@ public class ConceptBreakdownToolUI extends JFrame {
 
 
 
+    /**
+     UI Action Methods: Used to handle user interactions through UI, responding to button clicks and other actions.
+     **/
 
+    /**
+     showInstructions(): Displays the instructions to the user.
+     **/
     private void showInstructions() {
         String instructionsText = "<html>" +
                 "<head>" +
@@ -119,81 +171,77 @@ public class ConceptBreakdownToolUI extends JFrame {
                 "</head>" +
                 "<body>" +
                 "<h1>Welcome to the Concept Breakdown Tool!</h1>" +
-                "<p>This guide will walk you through the process of adding Categories, Concepts, and Components to your project using the Concept Breakdown Tool.</p>" +
+                "<p>This guide will walk you through the process of viewing, adding, updating, and removing categories, concepts, and components to your database.</p>" +
                 "<h2>Starting Up</h2>" +
                 "<ul>" +
-                "<li><u>Launch the Application:</u> Open the Concept Breakdown Tool on your computer.</li>" +
-                "<li><u>Main Window:</u> Upon launching, you will be greeted by the main window. Here, you can create new files, load existing ones, or access instructions.</li>" +
+                "<li><u>Launch the Application:</u> Open the Concept Breakdown Tool project on your computer and enter the path to the database file.</li>" +
+                "<li><u>Create File:</u> Click the 'Create File' button and it will create a .db file.</li>" +
                 "</ul>" +
-                "<h2>Creating and Managing Concepts</h2>" +
+                "<li><u>Load File:</u> Click the 'Load File' button and load your .db file.</li>" +
+                "</ul>" +
+                "<h2>Navigation and Buttons</h2>" +
                 "<ul>" +
-                "<li><u>Adding Categories:</u> To begin organizing your concepts, start by adding Categories. Select the 'Add Category' option from the main menu. Enter a name for your new category and confirm. This category will serve as a high-level organization for your concepts.</li>" +
-                "<li><u>Adding Concepts:</u> With categories in place, you can add Concepts to them. Choose 'Add Concept' from the menu, select the relevant category, and provide a name and description for your concept. These concepts are the core ideas you'll be working with.</li>" +
-                "<li><u>Adding Components:</u> Components are detailed elements under each Concept. Add a Component by selecting a concept and specifying the component's details. This allows you to break down concepts into manageable, focused parts.</li>" +
+                "<li><u>Menu:</u> Click the 'Menu' button and it will show three buttons - 'Add', 'Print', and 'Recommend'.</li>" +
+                "<li><u>Add:</u> It will add a category, concept, and/or component to your .db file. You cannot create a concept without a category and you cannot create a component without a concept.</li>" +
+                "<li><u>Print:</u> Displays a table with all of the content from the .db file.</li>" +
+                "<li><u>Recommend:</u> It will recommend you a diagram to transform your data into a visual aid.</li>" +
+                "<li><u>View:</u> You will join another window where you can view and/or modify concepts and/or components.</li>" +
+                "<li><u>Updates:</u> You will be able to modify the ID, Topic, and Description of a category, concept, and/or component.</li>" +
+                "<li><u>Remove:</u> You will be able to remove a category, concept, or component.</li>" +
                 "</ul>" +
-                "<h2>Managing Your Data</h2>" +
-                "<ul>" +
-                "<li><u>Updating Entries:</u> Select any category, concept, or component to update its details. This is essential for keeping your project's information accurate and current.</li>" +
-                "<li><u>Removing Entries:</u> Should you need to remove an entry, simply select it and choose the remove option. Confirm your decision to keep your workspace organized.</li>" +
-                "</ul>" +
-                "<h2>Exporting and Importing Data</h2>" +
-                "<p>Your work can be exported to a file for backup or sharing purposes. Conversely, you can import data from a previously saved file to continue your work or collaborate with others.</p>" +
                 "<h2>Conclusion</h2>" +
-                "<p>The Concept Breakdown Tool is designed to be intuitive and easy to use. With these instructions and tips, you should be well on your way to effectively managing your projects and studies. If you encounter any issues or have feedback, please don't hesitate to reach out for support.</p>" +
+                "<p>The Concept Breakdown Tool is designed to progressively improve visual-spatial learners experience with learning concepts. If you encounter any issues, reach out to alexusjenkins@uiuxdesign.us</p>" +
                 "</body></html>";
 
         // Display the instructions in a JOptionPane dialog with HTML formatting
         JOptionPane.showMessageDialog(this, instructionsText, "Instructions", JOptionPane.INFORMATION_MESSAGE);
     }
 
+    /**
+     createFile(): Handles the creation of a new database file (.db).
+     **/
     private void createFile() {
-        // Prompt the user to enter a file name
-        String fileName = JOptionPane.showInputDialog(this, "Enter a name for the tutorial file:", "Create Tutorial File", JOptionPane.PLAIN_MESSAGE);
+        String fileName = JOptionPane.showInputDialog(this, "Enter a name for the .db file:", "Create Database File", JOptionPane.PLAIN_MESSAGE);
         if (fileName == null || fileName.trim().isEmpty()) {
+            JOptionPane.showMessageDialog(this, "No file name entered. Operation canceled.", "Error", JOptionPane.ERROR_MESSAGE);
             return; // User cancelled or entered an empty name
         }
-        if (!fileName.endsWith(".txt")) {
-            fileName += ".txt"; // Ensure the file has a .txt extension
+        if (!fileName.endsWith(".db")) {
+            fileName += ".db"; // Ensure the file has a .db extension
         }
 
-        // Define the path and create a File object
-        File tutorialFile = new File(fileName);
+        File databaseFile = new File(fileName);
+        if (databaseFile.exists()) {
+            JOptionPane.showMessageDialog(this, "Database file already exists.", "Error", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
 
-        // Tutorial content generated by generateTutorialContent
-        String content = generateTutorialContent();
+        try {
+            if (databaseFile.createNewFile()) {
+                JOptionPane.showMessageDialog(this, "Database file created successfully!", "Success", JOptionPane.INFORMATION_MESSAGE);
+                try (Connection conn = DriverManager.getConnection("jdbc:sqlite:" + databaseFile.getAbsolutePath());
+                     Statement stmt = conn.createStatement()) {
+                    // SQL for creating tables
+                    String sqlCreateCategory = "CREATE TABLE Category (Category_ID INTEGER PRIMARY KEY, Category_Topic TEXT NOT NULL);";
+                    String sqlCreateConcept = "CREATE TABLE Concept (Concept_ID INTEGER PRIMARY KEY, Concept_Topic TEXT NOT NULL, Category_ID INTEGER NOT NULL, Concept_Details TEXT NOT NULL, FOREIGN KEY(Category_ID) REFERENCES Category(Category_ID));";
+                    String sqlCreateComponent = "CREATE TABLE Component (Component_Topic TEXT NOT NULL UNIQUE, Component_Description TEXT NOT NULL, Concept_ID INTEGER NOT NULL, FOREIGN KEY(Concept_ID) REFERENCES Concept(Concept_ID));";
 
-        // Write the tutorial content to the file and then load it
-        try (FileWriter writer = new FileWriter(tutorialFile)) {
-            writer.write(content);
-            JOptionPane.showMessageDialog(this, "Tutorial file created successfully!", "Success", JOptionPane.INFORMATION_MESSAGE);
-
-            // Load the created tutorial file into the main application window
-            if (mainWindow != null) {
-                mainWindow.setVisible(true);
-                mainWindow.loadFile(tutorialFile); // Corrected to pass the File object
+                    stmt.execute(sqlCreateCategory);
+                    stmt.execute(sqlCreateConcept);
+                    stmt.execute(sqlCreateComponent);
+                    JOptionPane.showMessageDialog(this, "Tables created successfully!", "Success", JOptionPane.INFORMATION_MESSAGE);
+                }
             }
+        } catch (SQLException e) {
+            JOptionPane.showMessageDialog(this, "SQL Error: " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
         } catch (IOException e) {
-            JOptionPane.showMessageDialog(this, "Failed to create the tutorial file:\n" + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+            JOptionPane.showMessageDialog(this, "Failed to create the database file: " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
         }
     }
 
-
-
-    private String generateTutorialContent() {
-        return
-                "Category: 0;Tutorial\n" +
-                        "Concept: 1;Adding Categories;Tutorial;To add a new Category, select 'Add' and choose 'Category'. Enter a unique ID and the category name.\n" +
-                        "Component: Step-by-Step Process;Choose 'Add' and select 'Category'. Provide an ID and name.\n" +
-                        "Component: Example Entry;Category: 1, UX Design Skills\n" +
-                        "Concept: 2;Adding Concepts;Tutorial;Concepts are ideas or topics within a Category. To add, select 'Add', then 'Concept'. Specify if the Concept belongs to an existing Category by entering the Category Name. Provide an ID, Topic, and Details.\n" +
-                        "Component: Detailed Instructions;Select 'Add', choose 'Concept', and fill in the required information.\n" +
-                        "Component: Example Entry;Concept: 101, Wireframing, UX Design Skills, Basics of wireframing\n" +
-                        "Concept: 3;Adding Components;Tutorial;Components are elements that make up a Concept. To add a Component, choose 'Add' and select 'Component'. You will need to specify the Concept ID it belongs to and provide details.\n" +
-                        "Component: Step-by-Step Guide;Choose 'Add', then 'Component'. Link to a Concept ID and provide the details.\n" +
-                        "Component: Example Entry;Component: Organizing Systems, How to organize content effectively.\n";
-    }
-
-
+    /** setMainWindow(): Sets the transition to the Main Application Window class.
+     * @param mainWindow: transitions to 'MainApplicationWindow' frame
+     * **/
     public void setMainWindow(MainApplicationWindow mainWindow) {
         this.mainWindow = mainWindow;
     }

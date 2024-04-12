@@ -1,0 +1,10 @@
+Category: 0;Tutorial
+Concept: 1;Adding Categories;Tutorial;To add a new Category, select 'Add' and choose 'Category'. Enter a unique ID and the category name.
+Component: Step-by-Step Process;Choose 'Add' and select 'Category'. Provide an ID and name.
+Component: Example Entry;Category: 1, UX Design Skills
+Concept: 2;Adding Concepts;Tutorial;Concepts are ideas or topics within a Category. To add, select 'Add', then 'Concept'. Specify if the Concept belongs to an existing Category by entering the Category Name. Provide an ID, Topic, and Details.
+Component: Detailed Instructions;Select 'Add', choose 'Concept', and fill in the required information.
+Component: Example Entry;Concept: 101, Wireframing, UX Design Skills, Basics of wireframing
+Concept: 3;Adding Components;Tutorial;Components are elements that make up a Concept. To add a Component, choose 'Add' and select 'Component'. You will need to specify the Concept ID it belongs to and provide details.
+Component: Step-by-Step Guide;Choose 'Add', then 'Component'. Link to a Concept ID and provide the details.
+Component: Example Entry;Component: Organizing Systems, How to organize content effectively.

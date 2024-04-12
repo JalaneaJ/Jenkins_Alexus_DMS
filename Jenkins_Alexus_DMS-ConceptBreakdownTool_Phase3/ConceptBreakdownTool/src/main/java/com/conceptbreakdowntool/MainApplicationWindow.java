@@ -1,3 +1,49 @@
+/**
+ Name: Alexus Jenkins
+ Course: CEN 3042C
+ Date: Apr 11th 2024
+ ClassName: MainApplicationWindow
+
+ Purpose: Serves as the primary usher interface for the Concept Breakdown Tool application that manages categorises, concepts, and components in a structured database.
+
+ - CONSTRUCTOR AND INITIALIZATION: Responsible for setting up the main window, database connection, and UI Components.
+     *Constructor(MainApplicationWindow): Initializes the main window; Sets up the database manager connection; Prepare the UI components.
+     *initComponents(): Sets up the components of the UI (Buttons, Labels, Panels).
+ - UI COMPONENTS SETUP: Configures the main table, label at the bottom of the window, and the buttons.
+     * setupDataTable(): Configures the main table to display data with action buttons.
+     * setupFeedbackLabel(): Initializes a label at the bottom of the window to provide feedback to the user.
+     * setupTableButtons(): Configured buttons within the table cells for actions like view, update, and delete.
+ - ACTION HANDLERS: Handles multiple options that allows data to load, display, and print onto the main window frame.
+     * loadFile(): Loads data from a selected file into the application.
+     * showAddOptionsDialog(): Displays a dialog for selecting whether to add a category, concept, or component.
+     * showAddCategoryDialog(): Dialogues for adding a category.
+     * showAddConceptDialog(): Dialogues for adding a concept.
+     * showAddComponentDialog(): Dialogues for adding a component.
+     * showPrintDialog(): Shows a dialog with printable content from the database.
+     * recommendDiagram: Randomly recommends a diagram type.
+     * showInstructions(): Displays instructions for using the application.
+ - DATA MANIPULATION METHODS: Updates the database and GUI.
+    * updateDataTable(): Refreshes and updates the data shown in the main table.
+    * refreshTableData(): Refreshes the data in the table.
+    * updateUI(): Updates the UI elements, primarily the data table, to ensure they reflect the current state of data within the database.
+    * modifyConceptDetails(): Allows updating the details of a selected concept.
+- ENTITY ACTION METHODS: Handles action specific to categorises, concepts, and components.
+    * viewCategoryAction(), viewConceptAction(), viewComponentAction(): Methods to view categories, concepts, and components.
+    * updateCategoryAction(), updateConceptAction(), updateComponentAction(): Updates the categories, concepts, and components.
+    * deleteCategoryAction(), deleteConceptAction(), deleteComponentAction(): Deletes the categories, concepts, and components.
+ - UTILITY CLASSES
+    * ButtonPanelRenderer: Customizes the cell rendered for embedding buttons within table cells.
+    * ButtonPanelEditor: Customizes the cell editor for embedding buttons within table cells.
+ - DIALOG AND DETAIL VIEWING
+    * viewConceptDetails(): Opens a detailed view for a specific concept, including its components.
+ - NESTED INTERFACES/CLASSES
+    * EntityType(Enum): Defines types of entities to streamline handling in UI components.
+    * UIUpdateListener(Interface): Provides an interface for updating the GUI.
+
+ @author Alexus Jenkins
+ @version 5.0
+ **/
+
 package com.conceptbreakdowntool;
 
 import javax.swing.*;
@@ -5,7 +51,6 @@ import javax.swing.table.DefaultTableModel;
 import javax.swing.table.TableCellRenderer;
 import javax.swing.table.TableColumn;
 import java.awt.*;
-import java.awt.event.ActionEvent;
 import java.io.*;
 import java.sql.Connection;
 import java.sql.ResultSet;
@@ -18,15 +63,23 @@ import java.util.Random;
 
 public class MainApplicationWindow extends JFrame {
     private ConceptBreakdownToolUI startupUI;
-    private DatabaseManager dbManager; // Use the passed DatabaseManager instance
+    private DatabaseManager dbManager;
     private JTable dataTable;
     private JLabel feedbackLabel;
     private JPanel panel;
 
+    /**
+     CONSTRUCTOR AND INITIALIZATION: Responsible for setting up the main window, database connection, and UI Components.
+     **/
+    /**
+     Constructor(MainApplicationWindow): Initializes the main window; Sets up the database manager connection; Prepare the UI components.
+     * @param dbManager the database manager to handle data operations
+     * @param startupUI the initial startup user interface
+     **/
     public MainApplicationWindow(DatabaseManager dbManager, ConceptBreakdownToolUI startupUI) {
         this.startupUI = startupUI;
         this.dbManager = dbManager;
-        this.dbManager.setUIUpdateListener(this::updateUI); // Setup UIUpdateListener
+        this.dbManager.setUIUpdateListener(this::updateUI);
 
         setTitle("Concept Breakdown Tool");
         setSize(1000, 600);
@@ -35,6 +88,9 @@ public class MainApplicationWindow extends JFrame {
         initComponents();
     }
 
+    /**
+     initComponents(): Sets up the components of the UI (Buttons, Labels, Panels).
+     **/
     private void initComponents() {
         JPanel topPanel = new JPanel();
         topPanel.setLayout(new BorderLayout(5, 0));
@@ -87,6 +143,9 @@ public class MainApplicationWindow extends JFrame {
         setupFeedbackLabel();
     }
 
+    /**
+     setupDataTable(): Configures the main table to display data with action buttons.
+     **/
     private void setupDataTable() {
         dataTable = new JTable(new DefaultTableModel(new Object[]{"ID", "Category Name", "Actions"}, 0) {
             @Override
@@ -110,13 +169,17 @@ public class MainApplicationWindow extends JFrame {
         refreshTableData(); // This method should call updateDataTable() method
     }
 
-
-
+    /**
+     setupFeedbackLabel(): Initializes a label at the bottom of the window to provide feedback to the user.
+     **/
     private void setupFeedbackLabel() {
         feedbackLabel = new JLabel("Ready.", SwingConstants.CENTER);
         add(feedbackLabel, BorderLayout.SOUTH);
     }
 
+    /**
+     setupTableButtons(): Configured buttons within the table cells for actions like view, update, and delete.
+     **/
     private void setupTableButtons() {
         int actionColumnIndex = 2;
         TableColumn actionColumn = dataTable.getColumnModel().getColumn(actionColumnIndex);
@@ -137,180 +200,14 @@ public class MainApplicationWindow extends JFrame {
     }
 
 
+    /**
+     ACTION HANDLERS: Handles multiple options that allows data to load, display, and print onto the main window frame.
+     **/
 
-    private void updateDataTable() {
-        DefaultTableModel model = (DefaultTableModel) dataTable.getModel();
-        model.setRowCount(0); // Clear existing data
-
-        for (Category category : dbManager.getCategories()) {
-            model.addRow(new Object[]{category.getId(), category.getTopic(), "Category"});
-
-            // Retrieve and add concepts for this category
-            List<Concept> concepts = dbManager.getConceptsByCategoryId(category.getId());
-            for (Concept concept : concepts) {
-                model.addRow(new Object[]{concept.getId(), concept.getTopic(), "Concept"});
-
-                // Retrieve and add components for this concept
-                List<Component> components = dbManager.getComponentsByConceptId(concept.getId());
-                for (Component component : components) {
-                    model.addRow(new Object[]{component.getTopic(), component.getDetails(), "Component"});
-                }
-            }
-        }
-    }
-
-
-    // An enum to define the type of entity the buttons are for
-    enum EntityType {
-        CATEGORY,
-        CONCEPT,
-        COMPONENT
-    }
-
-    private JPanel createButtonPanel(int id, EntityType type, String topic) { // Added 'topic' parameter for COMPONENT case
-        System.out.println("Creating button panel for " + type + " ID: " + id);
-        JPanel panel = new JPanel(new FlowLayout(FlowLayout.LEFT));
-        JButton viewButton = new JButton("View");
-        JButton updateButton = new JButton("Update");
-        JButton deleteButton = new JButton("Remove");
-
-        // Set action listeners based on the type of entity
-        if (type == EntityType.CATEGORY) {
-            viewButton.addActionListener(e -> viewCategoryAction(id));
-            updateButton.addActionListener(e -> updateCategoryAction(id));
-            deleteButton.addActionListener(e -> deleteCategoryAction(id));
-        } else if (type == EntityType.CONCEPT) {
-            viewButton.addActionListener(e -> viewConceptAction(id));
-            updateButton.addActionListener(e -> updateConceptAction(id));
-            deleteButton.addActionListener(e -> deleteConceptAction(id));
-        } else if (type == EntityType.COMPONENT) {
-            // Use the passed 'topic' for COMPONENT actions
-            viewButton.addActionListener(e -> viewComponentAction(topic));
-            updateButton.addActionListener(e -> updateComponentAction(topic));
-            deleteButton.addActionListener(e -> deleteComponentAction(topic));
-        }
-
-        panel.add(viewButton);
-        panel.add(updateButton);
-        panel.add(deleteButton);
-
-        return panel;
-    }
-
-
-    private void viewAction(int categoryId) {
-        Category category = dbManager.getCategoryById(categoryId);
-        if (category == null) {
-            JOptionPane.showMessageDialog(this, "Category with ID: " + categoryId + " not found.", "Error", JOptionPane.ERROR_MESSAGE);
-            return; // Stop the method if category is null
-        }
-
-        List<Concept> concepts = dbManager.getConceptsByCategoryId(categoryId);
-        JDialog categoryDialog = new JDialog();
-        categoryDialog.setTitle(category.getTopic()); // Window title should be category name
-        categoryDialog.setLayout(new BorderLayout());
-
-        JPanel conceptsPanel = new JPanel();
-        conceptsPanel.setLayout(new BoxLayout(conceptsPanel, BoxLayout.Y_AXIS));
-
-        for (Concept concept : concepts) {
-            JPanel conceptPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
-            JLabel conceptLabel = new JLabel(concept.getTopic());
-            JButton viewButton = new JButton("View");
-            JButton modifyButton = new JButton("Update");
-            JButton removeButton = new JButton("Remove");
-
-            // Add actions for buttons
-            viewButton.addActionListener(e -> viewConceptDetails(concept));
-            modifyButton.addActionListener(e -> modifyConceptDetails(concept.getId()));
-            removeButton.addActionListener(e -> {
-                int confirmation = JOptionPane.showConfirmDialog(this,
-                        "Are you sure you want to delete the concept '" + concept.getTopic() + "'?",
-                        "Confirm Delete",
-                        JOptionPane.YES_NO_OPTION);
-
-                if (confirmation == JOptionPane.YES_OPTION) {
-                    boolean removed = dbManager.deleteConcept(concept.getId());
-                    if (removed) {
-                        conceptsPanel.remove(conceptPanel);
-                        conceptsPanel.revalidate();
-                        conceptsPanel.repaint();
-                        JOptionPane.showMessageDialog(this, "Concept removed successfully.", "Removal Successful", JOptionPane.INFORMATION_MESSAGE);
-                    } else {
-                        JOptionPane.showMessageDialog(this, "Failed to remove the concept.", "Error", JOptionPane.ERROR_MESSAGE);
-                    }
-                }
-            });
-
-            conceptPanel.add(conceptLabel);
-            conceptPanel.add(viewButton);
-            conceptPanel.add(modifyButton);
-            conceptPanel.add(removeButton);
-            conceptsPanel.add(conceptPanel);
-        }
-
-        categoryDialog.add(new JScrollPane(conceptsPanel), BorderLayout.CENTER);
-        categoryDialog.setSize(600, 400);
-        categoryDialog.setLocationRelativeTo(null); // Center on screen
-        categoryDialog.setVisible(true);
-    }
-
-    private void modifyAction(int categoryId) {
-        Category category = dbManager.getCategoryById(categoryId);
-        if (category != null) {
-            JTextField categoryIdField = new JTextField(String.valueOf(category.getId()));
-            JTextField categoryNameField = new JTextField(category.getTopic());
-
-            Object[] message = {
-                    "Category ID:", categoryIdField,
-                    "Category Name:", categoryNameField,
-            };
-
-            int option = JOptionPane.showConfirmDialog(null, message, "Update Category", JOptionPane.OK_CANCEL_OPTION);
-            if (option == JOptionPane.OK_OPTION) {
-                int newCategoryId = Integer.parseInt(categoryIdField.getText());
-                String newCategoryName = categoryNameField.getText();
-
-                // Validate and update category
-                // Note: This requires adjusting your data model to support changing IDs, which might involve more complexity,
-                // such as updating references in related concepts/components.
-            }
-        } else {
-            JOptionPane.showMessageDialog(this, "Category not found.", "Error", JOptionPane.ERROR_MESSAGE);
-        }
-    }
-
-    private void removeAction(int categoryId) {
-        int confirm = JOptionPane.showConfirmDialog(this, "Are you sure you want to remove this category?", "Confirm Removal", JOptionPane.YES_NO_OPTION);
-        if(confirm == JOptionPane.YES_OPTION) {
-            boolean success = dbManager.deleteCategory(categoryId);
-            if(success) {
-                JOptionPane.showMessageDialog(this, "Category removed successfully.");
-                refreshTableData(); // Refresh the data in the table to show that the category has been removed
-
-                // Find the corresponding row in the table and remove it
-                DefaultTableModel model = (DefaultTableModel) dataTable.getModel();
-                for (int i = 0; i < model.getRowCount(); i++) {
-                    if(categoryId == (Integer) model.getValueAt(i, 0)) {
-                        model.removeRow(i);
-                        break; // Break the loop after removing the row
-                    }
-                }
-
-                // Notify the table that the data model has changed
-                dataTable.setModel(model);
-
-            } else {
-                JOptionPane.showMessageDialog(this, "Failed to remove category.");
-            }
-        }
-    }
-
-
-    private void handleCommand(ActionEvent e) {
-        feedbackLabel.setText("Command: " + e.getActionCommand());
-    }
-
+    /**
+     loadFile(): Loads data from a selected file into the application.
+     * @param selectedFile the file selected by the user to load
+     **/
     public void loadFile(File selectedFile) {
         try {
             boolean loaded = dbManager.loadDataFromFile(selectedFile.getAbsolutePath());
@@ -325,96 +222,9 @@ public class MainApplicationWindow extends JFrame {
         }
     }
 
-
-    class ButtonPanelRenderer implements TableCellRenderer {
-        @Override
-        public java.awt.Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
-            System.out.println("Rendering row: " + row + ", column: " + column); // Debug print
-            System.out.println("Value class: " + value.getClass().getName()); // Check the class of the value
-
-            if (value instanceof JPanel) {
-                return (JPanel) value;
-            } else {
-                return new JLabel("Not a Panel");
-            }
-        }
-    }
-
-
-    class ButtonPanelEditor extends DefaultCellEditor {
-        protected JPanel panel;
-
-        public ButtonPanelEditor(JCheckBox checkBox) {
-            super(checkBox);
-            this.clickCountToStart = 1; // This makes the editor immediately active on a single click
-        }
-
-        @Override
-        public java.awt.Component getTableCellEditorComponent(JTable table, Object value, boolean isSelected, int row, int column) {
-            if (value instanceof JPanel) {
-                this.panel = (JPanel) value;
-                return this.panel;
-            }
-            return super.getTableCellEditorComponent(table, value, isSelected, row, column);
-        }
-
-        @Override
-        public Object getCellEditorValue() {
-            return this.panel;
-        }
-    }
-
-    // This method is called when you want to view the details of a specific concepts
-    private void viewConceptDetails(Concept concept) {
-        // Create a JDialog to show the concept details
-        JDialog conceptDetailsDialog = new JDialog(this, "Concept Details", true);
-        conceptDetailsDialog.setLayout(new BorderLayout());
-
-        // Main panel that will contain all the details
-        JPanel contentPanel = new JPanel();
-        contentPanel.setLayout(new BoxLayout(contentPanel, BoxLayout.Y_AXIS));
-
-        // Concept topic and details
-        JLabel conceptNameLabel = new JLabel("Concept: " + concept.getTopic());
-        conceptNameLabel.setFont(new Font("Serif", Font.BOLD, 18));
-        JLabel conceptDetailsLabel = new JLabel("<html><p style='width: 300px;'>" + concept.getDetails() + "</p></html>");
-
-        // Add the labels to the panel
-        contentPanel.add(conceptNameLabel);
-        contentPanel.add(conceptDetailsLabel);
-
-        // A separator for visual structure
-        JSeparator separator = new JSeparator();
-        contentPanel.add(separator);
-
-        // Create a table to display the components
-        String[] columnNames = {"Component Topic", "Description"};
-        DefaultTableModel model = new DefaultTableModel(columnNames, 0) {
-            public boolean isCellEditable(int row, int column) {
-                return false; // Make the table cells not editable
-            }
-        };
-        JTable componentsTable = new JTable(model);
-        JScrollPane scrollPane = new JScrollPane(componentsTable);
-
-        // Fill the table with the concept's components
-        List<Component> components = dbManager.getComponentsByConceptId(concept.getId()); // Fetch the components
-        for (Component comp : components) {
-            model.addRow(new Object[]{comp.getTopic(), comp.getDetails()});
-        }
-
-        // Add table to the content panel
-        contentPanel.add(scrollPane);
-
-        // Add the main content panel to the dialog
-        conceptDetailsDialog.add(contentPanel, BorderLayout.CENTER);
-
-        // Set the size of the dialog and make it visible
-        conceptDetailsDialog.setSize(new Dimension(400, 300));
-        conceptDetailsDialog.setLocationRelativeTo(null); // Center the dialog
-        conceptDetailsDialog.setVisible(true);
-    }
-
+    /**
+     showAddOptionsDialog(): Displays a dialog for selecting whether to add a category, concept, or component.
+    **/
     private void showAddOptionsDialog() {
         String[] options = {"Category", "Concept", "Component"};
         int choice = JOptionPane.showOptionDialog(this,
@@ -440,6 +250,9 @@ public class MainApplicationWindow extends JFrame {
         }
     }
 
+    /**
+     showAddCategoryDialog(): Dialogues for adding a category.
+     **/
     private void showAddCategoryDialog() {
         JTextField idField = new JTextField();
         JTextField topicField = new JTextField();
@@ -461,6 +274,9 @@ public class MainApplicationWindow extends JFrame {
         }
     }
 
+    /**
+     showAddConceptDialog(): Dialogues for adding a concept.
+     **/
     private void showAddConceptDialog() {
         JTextField idField = new JTextField();
         JTextField topicField = new JTextField();
@@ -492,6 +308,9 @@ public class MainApplicationWindow extends JFrame {
         }
     }
 
+    /**
+     showAddComponentDialog(): Dialogues for adding a component.
+     **/
     private void showAddComponentDialog() {
         JTextField topicField = new JTextField();
         JTextArea detailsField = new JTextArea(5, 20); // Provides more space for details
@@ -534,6 +353,9 @@ public class MainApplicationWindow extends JFrame {
         }
     }
 
+    /**
+     showPrintDialog(): Shows a dialog with printable content from the database.
+     **/
     private void showPrintDialog() {
         // Create a new JDialog
         JDialog printDialog = new JDialog(this, "Print Data", true);
@@ -597,7 +419,9 @@ public class MainApplicationWindow extends JFrame {
             "Relationship Diagram"
     };
 
-    // Method to recommend a diagram
+    /**
+     recommendDiagram: Randomly recommends a diagram type.
+     **/
     private void recommendDiagram() {
         Random random = new Random();
         int index = random.nextInt(DIAGRAM_TYPES.length);
@@ -605,6 +429,9 @@ public class MainApplicationWindow extends JFrame {
         JOptionPane.showMessageDialog(this, "Recommended diagram type: " + recommendedDiagram, "Diagram Recommendation", JOptionPane.INFORMATION_MESSAGE);
     }
 
+    /**
+     showInstructions(): Displays instructions for using the application.
+     **/
     private void showInstructions() {
         String instructionsText = "<html>" +
                 "<head>" +
@@ -618,33 +445,92 @@ public class MainApplicationWindow extends JFrame {
                 "</head>" +
                 "<body>" +
                 "<h1>Welcome to the Concept Breakdown Tool!</h1>" +
-                "<p>This guide will walk you through the process of adding Categories, Concepts, and Components to your project using the Concept Breakdown Tool.</p>" +
+                "<p>This guide will walk you through the process of viewing, adding, updating, and removing categories, concepts, and components to your database.</p>" +
                 "<h2>Starting Up</h2>" +
                 "<ul>" +
-                "<li><u>Launch the Application:</u> Open the Concept Breakdown Tool on your computer.</li>" +
-                "<li><u>Main Window:</u> Upon launching, you will be greeted by the main window. Here, you can create new files, load existing ones, or access instructions.</li>" +
+                "<li><u>Launch the Application:</u> Open the Concept Breakdown Tool project on your computer and enter the path to the database file.</li>" +
+                "<li><u>Create File:</u> Click the 'Create File' button and it will create a .db file.</li>" +
                 "</ul>" +
-                "<h2>Creating and Managing Concepts</h2>" +
+                "<li><u>Load File:</u> Click the 'Load File' button and load your .db file.</li>" +
+                "</ul>" +
+                "<h2>Navigation and Buttons</h2>" +
                 "<ul>" +
-                "<li><u>Adding Categories:</u> To begin organizing your concepts, start by adding Categories. Select the 'Add Category' option from the main menu. Enter a name for your new category and confirm. This category will serve as a high-level organization for your concepts.</li>" +
-                "<li><u>Adding Concepts:</u> With categories in place, you can add Concepts to them. Choose 'Add Concept' from the menu, select the relevant category, and provide a name and description for your concept. These concepts are the core ideas you'll be working with.</li>" +
-                "<li><u>Adding Components:</u> Components are detailed elements under each Concept. Add a Component by selecting a concept and specifying the component's details. This allows you to break down concepts into manageable, focused parts.</li>" +
+                "<li><u>Menu:</u> Click the 'Menu' button and it will show three buttons - 'Add', 'Print', and 'Recommend'.</li>" +
+                "<li><u>Add:</u> It will add a category, concept, and/or component to your .db file. You cannot create a concept without a category and you cannot create a component without a concept.</li>" +
+                "<li><u>Print:</u> Displays a table with all of the content from the .db file.</li>" +
+                "<li><u>Recommend:</u> It will recommend you a diagram to transform your data into a visual aid.</li>" +
+                "<li><u>View:</u> You will join another window where you can view and/or modify concepts and/or components.</li>" +
+                "<li><u>Updates:</u> You will be able to modify the ID, Topic, and Description of a category, concept, and/or component.</li>" +
+                "<li><u>Remove:</u> You will be able to remove a category, concept, or component.</li>" +
                 "</ul>" +
-                "<h2>Managing Your Data</h2>" +
-                "<ul>" +
-                "<li><u>Updating Entries:</u> Select any category, concept, or component to update its details. This is essential for keeping your project's information accurate and current.</li>" +
-                "<li><u>Removing Entries:</u> Should you need to remove an entry, simply select it and choose the remove option. Confirm your decision to keep your workspace organized.</li>" +
-                "</ul>" +
-                "<h2>Exporting and Importing Data</h2>" +
-                "<p>Your work can be exported to a file for backup or sharing purposes. Conversely, you can import data from a previously saved file to continue your work or collaborate with others.</p>" +
                 "<h2>Conclusion</h2>" +
-                "<p>The Concept Breakdown Tool is designed to be intuitive and easy to use. With these instructions and tips, you should be well on your way to effectively managing your projects and studies. If you encounter any issues or have feedback, please don't hesitate to reach out for support.</p>" +
+                "<p>The Concept Breakdown Tool is designed to progressively improve visual-spatial learners experience with learning concepts. If you encounter any issues, reach out to alexusjenkins@uiuxdesign.us</p>" +
                 "</body></html>";
 
         // Display the instructions in a JOptionPane dialog with HTML formatting
         JOptionPane.showMessageDialog(this, instructionsText, "Instructions", JOptionPane.INFORMATION_MESSAGE);
     }
 
+
+    /**
+     DATA MANIPULATION METHODS: Updates the database and GUI.
+     **/
+    /**
+     updateDataTable(): Refreshes and updates the data shown in the main table.
+     **/
+    private void updateDataTable() {
+        DefaultTableModel model = (DefaultTableModel) dataTable.getModel();
+        model.setRowCount(0); // Clear existing data
+
+        for (Category category : dbManager.getCategories()) {
+            JPanel buttonPanel = createButtonPanel(category.getId(), EntityType.CATEGORY, category.getTopic());
+            model.addRow(new Object[]{category.getId(), category.getTopic(), buttonPanel});
+        }
+
+        dataTable.setModel(model);
+        System.out.println("Table data refreshed.");
+    }
+
+    /**
+     refreshTableData(): Refreshes the data in the table.
+     **/
+    private void refreshTableData() {
+        SwingUtilities.invokeLater(() -> {
+            DefaultTableModel model = (DefaultTableModel) dataTable.getModel();
+            model.setRowCount(0); // Clear existing rows
+
+            // Load only categories into the table
+            for (Category category : dbManager.getCategories()) {
+                model.addRow(new Object[]{
+                        category.getId(),
+                        category.getTopic(),
+                        createButtonPanel(category.getId(), EntityType.CATEGORY, category.getTopic())
+                });
+            }
+
+            dataTable.setModel(model);
+            System.out.println("Table data refreshed.");
+            feedbackLabel.setText("Data loaded.");
+        });
+    }
+
+    /**
+     updateUI(): Updates the UI elements, primarily the data table, to ensure they reflect the current state of data within the database.
+     **/
+    private void updateUI() {
+        // SwingUtilities.invokeLater is used to update the table in the Event Dispatch Thread
+        SwingUtilities.invokeLater(() -> {
+            // Make sure the method updateDataTable() updates the data model and UI accordingly
+            updateDataTable();
+            dataTable.revalidate();
+            dataTable.repaint();
+        });
+    }
+
+    /**
+     modifyConceptDetails(): Allows updating the details of a selected concept.
+     * @param conceptId the ID of the concept to be updated
+     **/
     private void modifyConceptDetails(int conceptId) {
         Concept concept = dbManager.getConcept(conceptId);
         if (concept != null) {
@@ -683,137 +569,14 @@ public class MainApplicationWindow extends JFrame {
         }
     }
 
-    // Method to get the ID of the selected concept from the UI, specifically from a JTable
 
-    private void showConceptDetails() {
-        int conceptId = getSelectedConceptIdFromUI(); // This is a placeholder, you would actually get the ID from your UI component
-        Concept concept = dbManager.getConcept(conceptId); // Fetch the concept from the database
-
-        if (concept != null) {
-            viewConceptDetails(concept); // Call the method to display the concept details in a dialog
-        } else {
-            JOptionPane.showMessageDialog(this, "Concept with ID " + conceptId + " not found.", "Concept Not Found", JOptionPane.ERROR_MESSAGE);
-        }
-    }
-
-    public interface UIUpdateListener {
-        void updateUI();
-    }
-
-    private UIUpdateListener uiUpdateListener;
-
-    public void setUIUpdateListener(UIUpdateListener listener) {
-        this.uiUpdateListener = listener;
-    }
-
-    private int getSelectedConceptIdFromUI() {
-        int selectedRow = dataTable.getSelectedRow(); // Get the index of the selected row
-
-        if (selectedRow >= 0) { // Check if a row is actually selected
-            // Assume the ID is in the first column of the table model
-            int conceptId = (Integer) dataTable.getModel().getValueAt(selectedRow, 0);
-            return conceptId;
-        } else {
-            // No row is selected, or an error occurred
-            JOptionPane.showMessageDialog(this, "Please select a concept from the table.", "No Concept Selected", JOptionPane.WARNING_MESSAGE);
-            return -1; // Return an invalid ID to indicate that no valid selection was made
-        }
-    }
-
-    private void refreshTableData() {
-        SwingUtilities.invokeLater(() -> {
-            DefaultTableModel model = (DefaultTableModel) dataTable.getModel();
-            model.setRowCount(0); // Clear existing rows
-
-            if (dbManager.getCategories().isEmpty()) {
-                System.out.println("No categories to display.");
-                feedbackLabel.setText("No data available.");
-                return; // Early return if no categories exist
-            }
-
-            for (Category category : dbManager.getCategories()) {
-                model.addRow(new Object[]{
-                        category.getId(),
-                        category.getTopic(),
-                        createButtonPanel(category.getId(), EntityType.CATEGORY, null)
-                });
-
-                List<Concept> concepts = dbManager.getConceptsByCategoryId(category.getId());
-                for (Concept concept : concepts) {
-                    model.addRow(new Object[]{
-                            concept.getId(),
-                            "  " + concept.getTopic(), // Indent for visibility under the category
-                            createButtonPanel(concept.getId(), EntityType.CONCEPT, null)
-                    });
-
-                    List<Component> components = dbManager.getComponentsByConceptId(concept.getId());
-                    for (Component component : components) {
-                        model.addRow(new Object[]{
-                                "", // Components do not have an ID in this scenario
-                                "    " + component.getTopic(), // Further indent for visibility under the concept
-                                createButtonPanel(-1, EntityType.COMPONENT, component.getTopic()) // Correctly pass the component's topic here
-                        });
-                    }
-                }
-            }
-
-            dataTable.setModel(model);
-            System.out.println("Table data refreshed.");
-            feedbackLabel.setText("Data loaded.");
-        });
-    }
-
-    private void updateUI() {
-        // SwingUtilities.invokeLater is used to update the table in the Event Dispatch Thread
-        SwingUtilities.invokeLater(() -> {
-            // Make sure the method updateDataTable() updates the data model and UI accordingly
-            updateDataTable();
-            dataTable.revalidate();
-            dataTable.repaint();
-        });
-    }
-
-    private void viewComponentAction(String componentTopic) {
-        // Here, you would implement the logic to view the details of a component.
-        // For example, showing a dialog with component details.
-        Component component = dbManager.getComponent(componentTopic);
-        if (component != null) {
-            JOptionPane.showMessageDialog(this, "Component Details:\n" + component.getDetails(), "View Component", JOptionPane.INFORMATION_MESSAGE);
-        } else {
-            JOptionPane.showMessageDialog(this, "Component with topic " + componentTopic + " not found.", "Error", JOptionPane.ERROR_MESSAGE);
-        }
-    }
-
-    private void updateComponentAction(String componentTopic) {
-        // This method would prompt the user to enter new details for the component and then update it.
-        Component component = dbManager.getComponent(componentTopic);
-        if (component != null) {
-            String newDetails = JOptionPane.showInputDialog(this, "Enter new details for the component:", component.getDetails());
-            if (newDetails != null && !newDetails.isEmpty()) {
-                // Assume there is a method in dbManager to update the component's details.
-                dbManager.updateComponent(component.getConceptId(), componentTopic, componentTopic, newDetails);
-                refreshTableData(); // Refresh table to show the updated details
-            }
-        } else {
-            JOptionPane.showMessageDialog(this, "Component with topic " + componentTopic + " not found.", "Error", JOptionPane.ERROR_MESSAGE);
-        }
-    }
-
-    private void deleteComponentAction(String componentTopic) {
-        // Prompt the user to confirm the deletion of the component.
-        int confirm = JOptionPane.showConfirmDialog(this, "Are you sure you want to delete the component with topic: " + componentTopic + "?", "Confirm Deletion", JOptionPane.YES_NO_OPTION);
-        if (confirm == JOptionPane.YES_OPTION) {
-            // Assume dbManager has a method to delete a component by topic.
-            boolean success = dbManager.deleteComponent(componentTopic);
-            if (success) {
-                JOptionPane.showMessageDialog(this, "Component deleted successfully.", "Deletion Successful", JOptionPane.INFORMATION_MESSAGE);
-                refreshTableData(); // Refresh table to remove the deleted component
-            } else {
-                JOptionPane.showMessageDialog(this, "Failed to delete the component.", "Error", JOptionPane.ERROR_MESSAGE);
-            }
-        }
-    }
-
+    /**
+     ENTITY ACTION METHODS: Handles action specific to categorises, concepts, and components.
+     **/
+    /**
+     viewCategoryAction(): Methods to view categories, concepts, and components.
+     * @param categoryId the ID of the category to view
+     **/
     private void viewCategoryAction(int categoryId) {
         Category category = dbManager.getCategoryById(categoryId);
         if (category == null) {
@@ -821,7 +584,7 @@ public class MainApplicationWindow extends JFrame {
             return;
         }
 
-        JDialog dialog = new JDialog(this, "View Category: " + category.getTopic());
+        JDialog dialog = new JDialog(this, "View Category: " + category.getTopic(), true);
         dialog.setLayout(new BorderLayout());
 
         JPanel conceptsPanel = new JPanel();
@@ -840,18 +603,15 @@ public class MainApplicationWindow extends JFrame {
                 JButton updateButton = new JButton("Update");
                 JButton removeButton = new JButton("Remove");
 
-                // Attach listeners to buttons
-                viewButton.addActionListener(e -> viewConceptDetails(concept)); // Now passing the Concept object
+                viewButton.addActionListener(e -> viewConceptDetails(concept));
                 updateButton.addActionListener(e -> updateConceptAction(concept.getId()));
-                removeButton.addActionListener(e -> deleteConceptAction(concept.getId()));
+                removeButton.addActionListener(e -> handleRemoveAction(dialog, concept, conceptsPanel, conceptPanel, categoryId));
 
-                // Add components to the concept panel
                 conceptPanel.add(conceptLabel);
                 conceptPanel.add(viewButton);
                 conceptPanel.add(updateButton);
                 conceptPanel.add(removeButton);
 
-                // Add concept panel to the main concepts panel
                 conceptsPanel.add(conceptPanel);
             }
         }
@@ -859,24 +619,133 @@ public class MainApplicationWindow extends JFrame {
         JScrollPane scrollPane = new JScrollPane(conceptsPanel);
         dialog.add(scrollPane, BorderLayout.CENTER);
 
-        dialog.pack();
+        dialog.setSize(400, 300);
         dialog.setLocationRelativeTo(this);
         dialog.setVisible(true);
     }
 
-    private void updateCategoryAction(int categoryId) {
-        Category category = dbManager.getCategory(categoryId);
-        if (category != null) {
-            String newTopic = JOptionPane.showInputDialog(this, "Enter new topic for the category:", category.getTopic());
-            if (newTopic != null && !newTopic.isEmpty()) {
-                dbManager.updateCategory(categoryId, newTopic);
-                refreshTableData(); // Refresh table to show the updated topic
-            }
+    /**
+     viewConceptAction(): Methods to view categories, concepts, and components.
+     * @param conceptId the ID of the concept to view
+     **/
+    private void viewConceptAction(int conceptId) {
+        Concept concept = dbManager.getConcept(conceptId);
+        if (concept != null) {
+            viewConceptDetails(concept);
         } else {
-            JOptionPane.showMessageDialog(this, "Category with ID " + categoryId + " not found.", "Error", JOptionPane.ERROR_MESSAGE);
+            JOptionPane.showMessageDialog(this, "Concept with ID " + conceptId + " not found.", "Error", JOptionPane.ERROR_MESSAGE);
         }
     }
 
+    /**
+     viewComponentAction(): Methods to view categories, concepts, and components.
+     * @param componentTopic the topic of the component to view
+     **/
+    private void viewComponentAction(String componentTopic) {
+        // Here, you would implement the logic to view the details of a component.
+        // For example, showing a dialog with component details.
+        Component component = dbManager.getComponent(componentTopic);
+        if (component != null) {
+            JOptionPane.showMessageDialog(this, "Component Details:\n" + component.getDetails(), "View Component", JOptionPane.INFORMATION_MESSAGE);
+        } else {
+            JOptionPane.showMessageDialog(this, "Component with topic " + componentTopic + " not found.", "Error", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    /**
+     updateCategoryAction(): Updates the categories, concepts, and components.
+     * @param categoryId the ID of the category to update
+     **/
+    private void updateCategoryAction(int categoryId) {
+        // Fetch the current category details
+        Category category = dbManager.getCategoryById(categoryId);
+        if (category == null) {
+            JOptionPane.showMessageDialog(this, "Category with ID " + categoryId + " not found.", "Error", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+
+        // Show dialog with current details for editing
+        JTextField idField = new JTextField(String.valueOf(category.getId()));
+        JTextField nameField = new JTextField(category.getTopic());
+        Object[] message = {
+                "Category ID:", idField,
+                "Category Name:", nameField
+        };
+
+        int option = JOptionPane.showConfirmDialog(null, message, "Update Category", JOptionPane.OK_CANCEL_OPTION);
+        if (option == JOptionPane.OK_OPTION) {
+            try {
+                int newId = Integer.parseInt(idField.getText().trim());
+                String newName = nameField.getText().trim();
+
+                // Check if the ID has changed and if so, validate it
+                if (newId != categoryId && dbManager.getCategoryById(newId) != null) {
+                    JOptionPane.showMessageDialog(this, "Category ID already exists.", "Error", JOptionPane.ERROR_MESSAGE);
+                    return;
+                }
+
+                // Now update the category in the database
+                boolean updated = dbManager.updateCategory(newId, newName);
+                if (updated) {
+                    JOptionPane.showMessageDialog(this, "Category updated successfully.", "Update Successful", JOptionPane.INFORMATION_MESSAGE);
+                    refreshTableData(); // Refresh data to show updated values
+                } else {
+                    JOptionPane.showMessageDialog(this, "Failed to update the category.", "Error", JOptionPane.ERROR_MESSAGE);
+                }
+            } catch (NumberFormatException e) {
+                JOptionPane.showMessageDialog(this, "Please enter a valid number for category ID.", "Invalid Input", JOptionPane.ERROR_MESSAGE);
+            }
+        }
+    }
+
+    /**
+     updateConceptAction(): Updates the categories, concepts, and components.
+     * @param conceptId the ID of the concept to update
+     **/
+    private void updateConceptAction(int conceptId) {
+        Object[] options = {"Concept", "Component"};
+        int choice = JOptionPane.showOptionDialog(this,
+                "Are you updating the Concept or Component?",
+                "Update Options",
+                JOptionPane.DEFAULT_OPTION,
+                JOptionPane.INFORMATION_MESSAGE,
+                null, options, options[0]);
+
+        switch (choice) {
+            case 0: // Update Concept
+                modifyConceptDetails(conceptId);
+                break;
+            case 1: // Update Component
+                updateComponentForConcept(conceptId);
+                break;
+            default:
+                break;
+        }
+    }
+
+    /**
+     updateComponentAction(): Updates the categories, concepts, and components.
+     * @param componentTopic the topic of the component to update
+     **/
+    private void updateComponentAction(String componentTopic) {
+        // This method would prompt the user to enter new details for the component and then update it.
+        Component component = dbManager.getComponent(componentTopic);
+        if (component != null) {
+            String newDetails = JOptionPane.showInputDialog(this, "Enter new details for the component:", component.getDetails());
+            if (newDetails != null && !newDetails.isEmpty()) {
+                // Assume there is a method in dbManager to update the component's details.
+                dbManager.updateComponent(component.getConceptId(), componentTopic, componentTopic, newDetails);
+                refreshTableData(); // Refresh table to show the updated details
+            }
+        } else {
+            JOptionPane.showMessageDialog(this, "Component with topic " + componentTopic + " not found.", "Error", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    /**
+     deleteCategoryAction(): Deletes the categories, concepts, and components.
+     * @param categoryId the ID of the category to delete
+     **/
     private void deleteCategoryAction(int categoryId) {
         int confirm = JOptionPane.showConfirmDialog(this, "Are you sure you want to delete the category with ID: " + categoryId + "?", "Confirm Deletion", JOptionPane.YES_NO_OPTION);
         if (confirm == JOptionPane.YES_OPTION) {
@@ -890,29 +759,10 @@ public class MainApplicationWindow extends JFrame {
         }
     }
 
-    private void viewConceptAction(int conceptId) {
-        Concept concept = dbManager.getConcept(conceptId);
-        if (concept != null) {
-            JOptionPane.showMessageDialog(this, "Concept Details:\n" + concept.getTopic() + "\n" + concept.getDetails(), "View Concept", JOptionPane.INFORMATION_MESSAGE);
-        } else {
-            JOptionPane.showMessageDialog(this, "Concept with ID " + conceptId + " not found.", "Error", JOptionPane.ERROR_MESSAGE);
-        }
-    }
-
-    private void updateConceptAction(int conceptId) {
-        Concept concept = dbManager.getConcept(conceptId);
-        if (concept != null) {
-            String newTopic = JOptionPane.showInputDialog(this, "Enter new topic for the concept:", concept.getTopic());
-            String newDetails = JOptionPane.showInputDialog(this, "Enter new details for the concept:", concept.getDetails());
-            if (newTopic != null && !newTopic.isEmpty() && newDetails != null && !newDetails.isEmpty()) {
-                dbManager.updateConcept(conceptId, newTopic, newDetails);
-                refreshTableData(); // Refresh table to show the updated concept
-            }
-        } else {
-            JOptionPane.showMessageDialog(this, "Concept with ID " + conceptId + " not found.", "Error", JOptionPane.ERROR_MESSAGE);
-        }
-    }
-
+    /**
+     deleteConceptAction(): Deletes the categories, concepts, and components.
+     * @param conceptId the ID of the concept to delete
+     **/
     private void deleteConceptAction(int conceptId) {
         int confirm = JOptionPane.showConfirmDialog(this, "Are you sure you want to delete the concept with ID: " + conceptId + "?", "Confirm Deletion", JOptionPane.YES_NO_OPTION);
         if (confirm == JOptionPane.YES_OPTION) {
@@ -926,5 +776,320 @@ public class MainApplicationWindow extends JFrame {
         }
     }
 
+    /**
+     deleteComponentAction(): Deletes the categories, concepts, and components.
+     * @param componentTopic the topic of the component to delete
+     **/
+    private void deleteComponentAction(String componentTopic) {
+        // Prompt the user to confirm the deletion of the component.
+        int confirm = JOptionPane.showConfirmDialog(this, "Are you sure you want to delete the component with topic: " + componentTopic + "?", "Confirm Deletion", JOptionPane.YES_NO_OPTION);
+        if (confirm == JOptionPane.YES_OPTION) {
+            // Assume dbManager has a method to delete a component by topic.
+            boolean success = dbManager.deleteComponent(componentTopic);
+            if (success) {
+                JOptionPane.showMessageDialog(this, "Component deleted successfully.", "Deletion Successful", JOptionPane.INFORMATION_MESSAGE);
+                refreshTableData(); // Refresh table to remove the deleted component
+            } else {
+                JOptionPane.showMessageDialog(this, "Failed to delete the component.", "Error", JOptionPane.ERROR_MESSAGE);
+            }
+        }
+    }
+
+    /**
+     UTILITY CLASSES
+     **/
+    /**
+     ButtonPanelRenderer: Customizes the cell rendered for embedding buttons within table cells.**/
+    class ButtonPanelRenderer implements TableCellRenderer {
+        @Override
+        public java.awt.Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
+            System.out.println("Rendering row: " + row + ", column: " + column); // Debug print
+            System.out.println("Value class: " + value.getClass().getName()); // Check the class of the value
+
+            if (value instanceof JPanel) {
+                return (JPanel) value;
+            } else {
+                return new JLabel("Not a Panel");
+            }
+        }
+    }
+
+    /**
+     ButtonPanelEditor: Customizes the cell editor for embedding buttons within table cells.**/
+    class ButtonPanelEditor extends DefaultCellEditor {
+        protected JPanel panel;
+
+        public ButtonPanelEditor(JCheckBox checkBox) {
+            super(checkBox);
+            this.clickCountToStart = 1; // This makes the editor immediately active on a single click
+        }
+
+        @Override
+        public java.awt.Component getTableCellEditorComponent(JTable table, Object value, boolean isSelected, int row, int column) {
+            if (value instanceof JPanel) {
+                this.panel = (JPanel) value;
+                return this.panel;
+            }
+            return super.getTableCellEditorComponent(table, value, isSelected, row, column);
+        }
+
+        @Override
+        public Object getCellEditorValue() {
+            return this.panel;
+        }
+    }
+
+    /**
+        DIALOG AND DETAIL VIEWING:
+     **/
+    /**
+     viewConceptDetails(): Opens a detailed view for a specific concept, including its components.
+     * @param concept the Concept object whose details are to be displayed
+     **/
+    private void viewConceptDetails(Concept concept) {
+        JDialog detailsDialog = new JDialog(this, "Concept Details", true);
+        detailsDialog.setLayout(new BorderLayout(10, 10)); // Margins between components
+
+        // Panel for concept name and details
+        JPanel detailPanel = new JPanel();
+        detailPanel.setLayout(new BoxLayout(detailPanel, BoxLayout.Y_AXIS));
+
+        JLabel nameLabel = new JLabel(concept.getTopic());
+        JTextArea detailsArea = new JTextArea(2, 5); // Set preferred size by rows and columns
+        detailsArea.setText(concept.getDetails());
+        detailsArea.setEditable(false);
+        detailsArea.setLineWrap(true);
+        detailsArea.setWrapStyleWord(true);
+        JScrollPane detailsScrollPane = new JScrollPane(detailsArea);
+
+        // Add components to the details panel
+        detailPanel.add(nameLabel);
+        detailPanel.add(Box.createRigidArea(new Dimension(0, 5))); // Space between nameLabel and detailsArea
+        detailPanel.add(detailsScrollPane);
+
+        // Table to display components
+        String[] columnNames = {"Component Topic", "Component Description"};
+        DefaultTableModel model = new DefaultTableModel(columnNames, 0);
+        JTable componentsTable = new JTable(model);
+        componentsTable.setFillsViewportHeight(true);
+
+        // Fill the table with component data
+        List<Component> components = dbManager.getComponentsByConceptId(concept.getId());
+        for (Component comp : components) {
+            model.addRow(new Object[]{comp.getTopic(), comp.getDetails()});
+        }
+
+        JScrollPane tableScrollPane = new JScrollPane(componentsTable);
+
+        // Add panels to the dialog
+        detailsDialog.add(detailPanel, BorderLayout.NORTH);
+        detailsDialog.add(tableScrollPane, BorderLayout.CENTER);
+
+        // Configure and display the dialog
+        detailsDialog.pack();
+        detailsDialog.setLocationRelativeTo(this);
+        detailsDialog.setVisible(true);
+    }
+
+    /**
+     NESTED INTERFACES CLASSES
+     **/
+
+    /**
+     EntityType(Enum): Defines types of entities to streamline handling in UI components.
+     **/
+    enum EntityType {
+        CATEGORY,
+        CONCEPT,
+        COMPONENT
+    }
+
+    /**
+     createButtonPanel(): Creates a JPanel with buttons based on category, concept, or component.
+     * @param id the entity ID
+     * @param type the EntityType (CATEGORY, CONCEPT, COMPONENT)
+     * @param topic the topic of the entity (used for COMPONENT)
+     * @return JPanel containing action buttons
+     **/
+    private JPanel createButtonPanel(int id, EntityType type, String topic) { // Added 'topic' parameter for COMPONENT case
+        System.out.println("Creating button panel for " + type + " ID: " + id);
+        JPanel panel = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        JButton viewButton = new JButton("View");
+        JButton updateButton = new JButton("Update");
+        JButton deleteButton = new JButton("Remove");
+
+        // Set action listeners based on the type of entity
+        if (type == EntityType.CATEGORY) {
+            viewButton.addActionListener(e -> viewCategoryAction(id));
+            updateButton.addActionListener(e -> updateCategoryAction(id));
+            deleteButton.addActionListener(e -> deleteCategoryAction(id));
+        } else if (type == EntityType.CONCEPT) {
+            viewButton.addActionListener(e -> viewConceptAction(id));
+            updateButton.addActionListener(e -> updateConceptAction(id));
+            deleteButton.addActionListener(e -> deleteConceptAction(id));
+        } else if (type == EntityType.COMPONENT) {
+            // Use the passed 'topic' for COMPONENT actions
+            viewButton.addActionListener(e -> viewComponentAction(topic));
+            updateButton.addActionListener(e -> updateComponentAction(topic));
+            deleteButton.addActionListener(e -> deleteComponentAction(topic));
+        }
+
+        panel.add(viewButton);
+        panel.add(updateButton);
+        panel.add(deleteButton);
+
+        return panel;
+    }
+
+
+    /**UIUpdateListener():Provides an interface for updating the GUI. **/
+    public interface UIUpdateListener {
+        void updateUI();
+    }
+
+    /**
+     updateComponentForConcept(): Displays a dialog that will allow the user to update component based on concept ID.
+     * @param conceptId The ID of the concept whose components are to be updated.
+     **/
+    private void updateComponentForConcept(int conceptId) {
+        // Fetch the Concept to get its Components
+        Concept concept = dbManager.getConcept(conceptId);
+        if (concept == null) {
+            JOptionPane.showMessageDialog(this, "Concept not found.", "Error", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+
+        // Get the list of Components for this Concept
+        List<Component> components = dbManager.getComponentsByConceptId(conceptId);
+        if (components.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "This Concept has no Components to update.", "Info", JOptionPane.INFORMATION_MESSAGE);
+            return;
+        }
+
+        // Let the user select which Component to update
+        Component selectedComponent = (Component) JOptionPane.showInputDialog(this,
+                "Select the Component to update:",
+                "Select Component",
+                JOptionPane.QUESTION_MESSAGE,
+                null,
+                components.toArray(new Component[0]),
+                components.get(0));
+
+        if (selectedComponent != null) {
+            // Proceed to update the selected Component
+            updateComponentDetails(selectedComponent);
+        }
+    }
+    /**
+     updateComponentDetails(): Displays a dialog that will allow users to update component details.
+     * @param component The component object to be updated.
+     **/
+    private void updateComponentDetails(Component component) {
+        JTextField topicField = new JTextField(component.getTopic());
+        JTextArea detailsArea = new JTextArea(5, 20);
+        detailsArea.setText(component.getDetails());
+        detailsArea.setLineWrap(true);
+        detailsArea.setWrapStyleWord(true);
+
+        JScrollPane detailsScroll = new JScrollPane(detailsArea);
+        detailsScroll.setPreferredSize(new Dimension(300, 100));
+
+        JPanel panel = new JPanel();
+        panel.setLayout(new BoxLayout(panel, BoxLayout.PAGE_AXIS));
+        panel.add(new JLabel("Topic:"));
+        panel.add(topicField);
+        panel.add(Box.createRigidArea(new Dimension(0, 5))); // Spacer
+        panel.add(new JLabel("Details:"));
+        panel.add(detailsScroll);
+
+        int result = JOptionPane.showConfirmDialog(this, panel, "Update Component", JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
+        if (result == JOptionPane.OK_OPTION) {
+            String newTopic = topicField.getText().trim();
+            String newDetails = detailsArea.getText().trim();
+
+            boolean updated = dbManager.updateComponent(component.getConceptId(), component.getTopic(), newTopic, newDetails);
+            if (updated) {
+                JOptionPane.showMessageDialog(this, "Component updated successfully.", "Update Successful", JOptionPane.INFORMATION_MESSAGE);
+                refreshTableData(); // Refresh the table to show the updated data
+            } else {
+                JOptionPane.showMessageDialog(this, "Failed to update the component.", "Error", JOptionPane.ERROR_MESSAGE);
+            }
+        }
+    }
+    /**
+     handleRemoveAction(): Removes concepts or components along with a confirmation dialog for deleting the content.
+     * @param dialog The parent dialog from which the action was triggered.
+     * @param concept The concept object from which a component might be removed.
+     * @param conceptsPanel The panel displaying the concepts, to be updated on removal.
+     * @param conceptPanel The specific panel of the concept being removed.
+     * @param categoryId The ID of the category under which the concept is categorized.
+     **/
+    private void handleRemoveAction(JDialog dialog, Concept concept, JPanel conceptsPanel, JPanel conceptPanel, int categoryId) {
+        // Define removal options
+        Object[] options = {"Concept", "Component"};
+        int response = JOptionPane.showOptionDialog(
+                dialog,
+                "Do you want to remove the entire concept or just a component?",
+                "Confirm Removal",
+                JOptionPane.YES_NO_OPTION,
+                JOptionPane.QUESTION_MESSAGE,
+                null,
+                options,
+                options[0]
+        );
+
+        if (response == JOptionPane.YES_OPTION) {
+            // Confirm and delete the entire concept
+            int confirm = JOptionPane.showConfirmDialog(
+                    dialog,
+                    "Are you sure you want to delete the entire concept: " + concept.getTopic() + "?",
+                    "Confirm Concept Deletion",
+                    JOptionPane.YES_NO_OPTION
+            );
+            if (confirm == JOptionPane.YES_OPTION) {
+                boolean removed = dbManager.deleteConcept(concept.getId());
+                if (removed) {
+                    conceptsPanel.remove(conceptPanel);
+                    conceptsPanel.revalidate();
+                    conceptsPanel.repaint();
+                    JOptionPane.showMessageDialog(dialog, "Concept removed successfully.", "Removal Successful", JOptionPane.INFORMATION_MESSAGE);
+                } else {
+                    JOptionPane.showMessageDialog(dialog, "Failed to remove the concept.", "Error", JOptionPane.ERROR_MESSAGE);
+                }
+            }
+        } else if (response == JOptionPane.NO_OPTION) {
+            // Confirm and delete a component
+            List<Component> componentList = dbManager.getComponentsByConceptId(concept.getId());
+            Component[] componentsArray = componentList.toArray(new Component[0]);
+            Component selectedComponent = (Component) JOptionPane.showInputDialog(
+                    dialog,
+                    "Select the Component to delete:",
+                    "Select Component",
+                    JOptionPane.QUESTION_MESSAGE,
+                    null,
+                    componentsArray,
+                    componentsArray[0]
+            );
+
+            if (selectedComponent != null) {
+                int confirm = JOptionPane.showConfirmDialog(
+                        dialog,
+                        "Are you sure you want to delete the component: " + selectedComponent.getTopic() + "?",
+                        "Confirm Component Deletion",
+                        JOptionPane.YES_NO_OPTION
+                );
+                if (confirm == JOptionPane.YES_OPTION) {
+                    boolean removed = dbManager.deleteComponent(selectedComponent.getTopic());
+                    if (removed) {
+                        JOptionPane.showMessageDialog(dialog, "Component removed successfully.", "Removal Successful", JOptionPane.INFORMATION_MESSAGE);
+                        // Refresh the concept panel to remove the component.
+                        viewCategoryAction(categoryId);
+                    } else {
+                        JOptionPane.showMessageDialog(dialog, "Failed to remove the component.", "Error", JOptionPane.ERROR_MESSAGE);
+                    }
+                }
+            }
+        }
+    }
 
 }
