@@ -183,11 +183,16 @@ public class DatabaseManager {
     /**
      addCategory(): Adds new entries to the database tables.
      @param category The category object to add to the database.
+     @return true if the category was added successfully, false otherwise.
      **/
-    public void addCategory(Category category) {
-        String sql = "INSERT INTO Category (Category_ID, Category_Topic) VALUES (?, ?)";
-        boolean insertSuccess = false;
+    public boolean addCategory(Category category) {
+        // Check if the category ID already exists
+        if (getCategory(category.getId()) != null) {
+            System.out.println("Category ID " + category.getId() + " already exists.");
+            return false; // ID already exists, do not add the new category
+        }
 
+        String sql = "INSERT INTO Category (Category_ID, Category_Topic) VALUES (?, ?)";
         try (Connection conn = this.connect();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setInt(1, category.getId());
@@ -196,18 +201,18 @@ public class DatabaseManager {
 
             // Check if insert was successful by the number of affected rows
             if (affectedRows > 0) {
-                insertSuccess = true;
+                categories.add(category); // Add to in-memory list
+                if (uiUpdateListener != null) {
+                    uiUpdateListener.updateUI(); // Update the UI
+                }
+                return true; // Insert successful
             }
         } catch (SQLException e) {
-            System.out.println(e.getMessage());
+            System.err.println("SQL Error: " + e.getMessage());
         }
-
-        // After successfully adding the category to the database, update the UI.
-        if (insertSuccess && uiUpdateListener != null) {
-            System.out.println("Updating UI after adding category");
-            uiUpdateListener.updateUI();
-        }
+        return false; // Insert unsuccessful
     }
+
     /**
      * addConcept(): Adds new entries to the database tables.
      * @param concept The concept to add. It must be linked to an existing category.
@@ -351,7 +356,7 @@ public class DatabaseManager {
      * **/
     public boolean updateComponent(int conceptId, String oldTopic, String newTopic, String newDetails) {
         // SQL statement to update a component based on Concept ID and old topic
-        String sql = "UPDATE Component SET topic = ?, details = ? WHERE concept_id = ? AND topic = ?";
+        String sql = "UPDATE Component SET Component_Topic = ?, Component_Description = ? WHERE Concept_ID = ? AND Component_Topic = ?";
 
         try (Connection conn = this.connect(); PreparedStatement pstmt = conn.prepareStatement(sql)) {
             // Set parameters for the prepared statement

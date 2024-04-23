@@ -263,14 +263,18 @@ public class MainApplicationWindow extends JFrame {
 
         int option = JOptionPane.showConfirmDialog(this, message, "Add Category", JOptionPane.OK_CANCEL_OPTION);
         if (option == JOptionPane.OK_OPTION) {
-            int id = Integer.parseInt(idField.getText().trim()); // Add validation as necessary
-            String topic = topicField.getText().trim();
-            dbManager.addCategory(new Category(id, topic)); // Assuming this method exists in your DatabaseManager
-            if(dbManager.getCategory(id) != null) {
-                refreshTableData(); // Refresh data to reflect changes
+            try {
+                int id = Integer.parseInt(idField.getText().trim()); // Add validation as necessary
+                String topic = topicField.getText().trim();
+                boolean success = dbManager.addCategory(new Category(id, topic)); // Assuming this method exists in your DatabaseManager
+                if (success) {
+                    refreshTableData(); // Refresh data to reflect changes
+                } else {
+                    JOptionPane.showMessageDialog(this, "Category ID already exists.", "Error", JOptionPane.ERROR_MESSAGE); // Moved inside the else block
+                }
+            } catch (NumberFormatException e) {
+                JOptionPane.showMessageDialog(this, "Please enter a valid number for the category ID.", "Input Error", JOptionPane.ERROR_MESSAGE);
             }
-        } else {
-            JOptionPane.showMessageDialog(this, "Failed to add category.", "Error", JOptionPane.ERROR_MESSAGE);
         }
     }
 
